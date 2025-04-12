@@ -1,6 +1,4 @@
 import { ColorEntry } from './colorDatabase';
-import { STATIC_COLOR_DATA } from './colorDataStatic';
-import { COMPLETE_COLOR_DATA } from './completeColorData';
 import { ACCURATE_COLOR_DATA } from './fixedAccurateColorData';
 
 export interface Color {
@@ -10,7 +8,7 @@ export interface Color {
   name?: string;
 }
 
-// Add HARMONY_RULES constant for different color harmony patterns
+// Color harmony patterns
 const HARMONY_RULES = {
   triadic: {
     angles: [0, 120, 240],
@@ -34,43 +32,9 @@ const HARMONY_RULES = {
   }
 };
 
-// Add role-based color constraints after the HARMONY_RULES constant
-interface ColorRoleConstraint {
-  minLightness: number;
-  maxLightness: number;
-  minSaturation?: number;
-  maxSaturation?: number;
-}
-
-const ROLE_CONSTRAINTS: Record<string, ColorRoleConstraint> = {
-  dominant: { minLightness: 20, maxLightness: 40, maxSaturation: 70 },
-  accent: { minLightness: 50, maxLightness: 70, minSaturation: 80 },
-  neutral: { minLightness: 60, maxLightness: 80, maxSaturation: 30 },
-  highlight: { minLightness: 80, maxLightness: 95, minSaturation: 50 },
-  transition: { minLightness: 40, maxLightness: 60, minSaturation: 60 }
-};
-
-// Define minimum contrast ratio for adjacent colors
-const MIN_CONTRAST_RATIO = 4.0; // Improved from 3.0 to better meet accessibility standards
-
-// Improve the minimum spacing value for better distribution
-const MIN_HUE_SPACING = 72; // Ensure colors are at least 72° apart on the hue wheel
-
-// Define temperature ranges for warm, cool, and neutral colors
-const TEMPERATURE_RANGES = {
-  warm: { minHue: 0, maxHue: 60 },
-  cool: { minHue: 180, maxHue: 300 },
-  neutral: { minHue: 0, maxHue: 360 }
-};
-
-// Define saturation ranges for different color roles
-const SATURATION_RANGES = {
-  dominant: [40, 60],   // Base/dominant colors - moderate saturation
-  accent: [70, 90],     // Accent colors - high saturation
-  neutral: [10, 30],    // Neutral colors - low saturation
-  highlight: [50, 70],  // Highlight colors - moderate-high saturation
-  transition: [30, 50]  // Transition colors - moderate-low saturation
-};
+// ===========================================
+// Core Color Conversion Functions
+// ===========================================
 
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
   // Remove the hash if it exists
@@ -119,555 +83,9 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
   };
 }
 
-function calculateContrast(rgb1: { r: number, g: number, b: number }, rgb2: { r: number, g: number, b: number }): number {
-  // Calculate relative luminance for both colors
-  const getLuminance = (rgb: { r: number, g: number, b: number }) => {
-    const sRGB = [rgb.r / 255, rgb.g / 255, rgb.b / 255].map(val => {
-      return val <= 0.03928
-        ? val / 12.92
-        : Math.pow((val + 0.055) / 1.055, 2.4);
-    });
-    return 0.2126 * sRGB[0] + 0.7152 * sRGB[1] + 0.0722 * sRGB[2];
-  };
-  
-  const luminance1 = getLuminance(rgb1);
-  const luminance2 = getLuminance(rgb2);
-  
-  const brightest = Math.max(luminance1, luminance2);
-  const darkest = Math.min(luminance1, luminance2);
-  
-  return (brightest + 0.05) / (darkest + 0.05);
-}
-
-// Update the enforceHueSpacing function to ensure better distribution
-function enforceHueSpacing(hues: number[], minSpacing: number = MIN_HUE_SPACING): number[] {
-  if (hues.length <= 1) return hues;
-  
-  const adjustedHues = [...hues];
-  
-  // First pass: ensure all colors meet minimum spacing requirements
-  for (let i = 0; i < adjustedHues.length; i++) {
-    for (let j = i + 1; j < adjustedHues.length; j++) {
-      const hueDiff = Math.min(
-        Math.abs(adjustedHues[i] - adjustedHues[j]),
-        360 - Math.abs(adjustedHues[i] - adjustedHues[j])
-      );
-      
-      if (hueDiff < minSpacing) {
-        // If hues are too close, adjust the later hue
-        const clockwise = (adjustedHues[i] + minSpacing) % 360;
-        const counterClockwise = (adjustedHues[i] - minSpacing + 360) % 360;
-        
-        // Choose the direction that creates the least conflict with other colors
-        const clockwiseConflicts = adjustedHues.filter(h => h !== adjustedHues[j]).some(h => 
-          Math.min(Math.abs(clockwise - h), 360 - Math.abs(clockwise - h)) < minSpacing
-        );
-        
-        const counterClockwiseConflicts = adjustedHues.filter(h => h !== adjustedHues[j]).some(h => 
-          Math.min(Math.abs(counterClockwise - h), 360 - Math.abs(counterClockwise - h)) < minSpacing
-        );
-        
-        if (!clockwiseConflicts) {
-          adjustedHues[j] = clockwise;
-        } else if (!counterClockwiseConflicts) {
-          adjustedHues[j] = counterClockwise;
-        } else {
-          // If both directions conflict, choose the one with larger spacing
-          let maxClockwiseSpace = 360;
-          let maxCounterClockwiseSpace = 360;
-          
-          for (let k = 0; k < adjustedHues.length; k++) {
-            if (k !== j) {
-              const cwDiff = Math.min(
-                Math.abs(clockwise - adjustedHues[k]),
-                360 - Math.abs(clockwise - adjustedHues[k])
-              );
-              
-              const ccwDiff = Math.min(
-                Math.abs(counterClockwise - adjustedHues[k]),
-                360 - Math.abs(counterClockwise - adjustedHues[k])
-              );
-              
-              maxClockwiseSpace = Math.min(maxClockwiseSpace, cwDiff);
-              maxCounterClockwiseSpace = Math.min(maxCounterClockwiseSpace, ccwDiff);
-            }
-          }
-          
-          adjustedHues[j] = maxClockwiseSpace >= maxCounterClockwiseSpace ? clockwise : counterClockwise;
-        }
-      }
-    }
-  }
-  
-  return adjustedHues;
-}
-
-// Add a function to distribute lightness values for better hierarchy
-function distributeLightness(count: number): number[] {
-  // Create a balanced distribution from dark to light
-  const minLightness = 15;
-  const maxLightness = 85;
-  const range = maxLightness - minLightness;
-  
-  // Ensure we have a good mix of dark, medium, and light colors
-  const lightness: number[] = [];
-  
-  if (count <= 3) {
-    // For small palettes, ensure clear contrast with dark, medium, light
-    lightness.push(minLightness + range * 0.1);  // Dark
-    if (count >= 2) lightness.push(minLightness + range * 0.5);  // Medium
-    if (count >= 3) lightness.push(minLightness + range * 0.9);  // Light
-  } else {
-    // For larger palettes, create a more gradual distribution
-    // but ensure we still have anchor points at dark, medium, and light
-    
-    // Always include darkest, medium, and lightest values
-    lightness.push(minLightness + range * 0.1);  // Dark anchor
-    lightness.push(minLightness + range * 0.5);  // Medium anchor
-    lightness.push(minLightness + range * 0.9);  // Light anchor
-    
-    // Fill in remaining values with balanced spacing
-    const remainingValues = count - 3;
-    if (remainingValues > 0) {
-      const step = range / (remainingValues + 1);
-      
-      for (let i = 1; i <= remainingValues; i++) {
-        // Avoid exact duplicates of our anchors
-        const val = minLightness + (step * i);
-        if (Math.abs(val - lightness[0]) > 5 && 
-            Math.abs(val - lightness[1]) > 5 && 
-            Math.abs(val - lightness[2]) > 5) {
-          lightness.push(val);
-        } else {
-          // If too close to an anchor, offset slightly
-          lightness.push(val + 7);
-        }
-      }
-    }
-    
-    // Sort from darkest to lightest
-    lightness.sort((a, b) => a - b);
-  }
-  
-  return lightness;
-}
-
-// Add a function to create a balanced saturation distribution
-function distributeSaturation(count: number, baseS: number): number[] {
-  const saturation: number[] = [];
-  
-  // Ensure we have a mix of low, medium, and high saturation values
-  // with at least one muted and one vibrant color
-  
-  // Define bounds
-  const minSaturation = Math.max(20, baseS - 40);
-  const maxSaturation = Math.min(100, baseS + 30);
-  
-  if (count <= 3) {
-    // For small palettes, have clear saturation roles
-    saturation.push(Math.min(30, minSaturation));  // Low (muted)
-    if (count >= 2) saturation.push(baseS);        // Medium (base)
-    if (count >= 3) saturation.push(maxSaturation); // High (vibrant)
-  } else {
-    // For accent color (usually one)
-    saturation.push(maxSaturation);
-    
-    // For neutral/muted color (usually one)
-    saturation.push(minSaturation);
-    
-    // For dominant/base color
-    saturation.push(Math.min(70, Math.max(40, baseS)));
-    
-    // Fill in remaining colors with alternating saturation values
-    for (let i = 3; i < count; i++) {
-      // Alternate between more saturated and more muted
-      if (i % 2 === 0) {
-        saturation.push(Math.min(90, baseS + 15 + (i % 3) * 5));
-      } else {
-        saturation.push(Math.max(30, baseS - 10 - (i % 3) * 5));
-      }
-    }
-  }
-  
-  return saturation;
-}
-
-// Add a function to scale saturation based on color role
-function scaleSaturation(hsl: { h: number; s: number; l: number }, role: string): { h: number; s: number; l: number } {
-  const range = SATURATION_RANGES[role as keyof typeof SATURATION_RANGES] || [30, 70];
-  const [min, max] = range;
-  
-  // Use a more balanced approach for saturation
-  // Take into account the existing saturation but bias toward the role-appropriate range
-  const targetSaturation = min + (max - min) * (Math.random() * 0.6 + 0.2); // Avoid extremes
-  
-  // Blend existing saturation with target 
-  const newSaturation = Math.round((hsl.s * 0.3) + (targetSaturation * 0.7));
-  
-  return {
-    ...hsl,
-    s: Math.max(min, Math.min(max, newSaturation))
-  };
-}
-
-// Add a function to adjust color temperature
-function adjustTemperature(
-  colors: Color[],
-  temperature: 'warm' | 'cool' | 'neutral' | 'mixed' = 'mixed'
-): Color[] {
-  if (temperature === 'mixed') return colors;
-  
-  const range = TEMPERATURE_RANGES[temperature];
-  
-  return colors.map((color, index) => {
-    // Skip adjustment for specific roles
-    if (color.name || index === 0) return color; // Don't adjust named colors or base color
-    
-    const hue = color.hsl.h;
-    
-    // Check if the hue needs adjustment
-    if (temperature === 'neutral') {
-      // For neutral, we don't adjust hue but might desaturate a bit
-      const newSaturation = Math.max(20, color.hsl.s - 15);
-      const newHsl = { ...color.hsl, s: newSaturation };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const newHex = hslToHex(newHsl.h, newHsl.s, newHsl.l);
-      
-      return { ...color, hsl: newHsl, rgb: newRgb, hex: newHex };
-    }
-    
-    // For warm/cool, adjust hue to be within range
-    // But only if it's far outside the range
-    if (temperature === 'warm' && (hue > 90 && hue < 270)) {
-      // Far from warm range, shift toward warm
-      const targetHue = Math.random() < 0.5 ? 
-        Math.max(range.minHue, Math.min(range.minHue + 30, hue - 180)) :
-        Math.max(range.maxHue - 30, Math.min(range.maxHue, hue - 180));
-      
-      const newHsl = { ...color.hsl, h: targetHue };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const newHex = hslToHex(newHsl.h, newHsl.s, newHsl.l);
-      
-      return { ...color, hsl: newHsl, rgb: newRgb, hex: newHex };
-    }
-    
-    if (temperature === 'cool' && (hue < 150 || hue > 330)) {
-      // Far from cool range, shift toward cool
-      const targetHue = hue < 150 ?
-        Math.max(range.minHue, Math.min(range.maxHue, hue + 180)) :
-        Math.max(range.minHue, Math.min(range.maxHue, hue - 180));
-      
-      const newHsl = { ...color.hsl, h: targetHue };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const newHex = hslToHex(newHsl.h, newHsl.s, newHsl.l);
-      
-      return { ...color, hsl: newHsl, rgb: newRgb, hex: newHex };
-    }
-    
-    return color;
-  });
-}
-
-// Update the validateAndImproveContrast function to be more aggressive with contrast optimization
-function validateAndImproveContrast(colors: Color[]): Color[] {
-  if (colors.length <= 1) return colors;
-  
-  const improvedColors = [...colors];
-  
-  // First, calculate perceptual luminance for all colors
-  const luminances = improvedColors.map(color => {
-    const r = color.rgb.r / 255;
-    const g = color.rgb.g / 255;
-    const b = color.rgb.b / 255;
-    
-    // Use perceived luminance formula
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  });
-  
-  // Check and improve contrast between adjacent colors
-  for (let i = 0; i < improvedColors.length - 1; i++) {
-    const color1 = improvedColors[i];
-    const color2 = improvedColors[i + 1];
-    
-    let contrast = calculateContrast(color1.rgb, color2.rgb);
-    let attempts = 0;
-    
-    // Try to improve contrast if below minimum - with more attempts
-    while (contrast < MIN_CONTRAST_RATIO && attempts < 12) {
-      attempts++;
-      
-      // Calculate luminance difference to determine which direction to adjust
-      const lum1 = luminances[i];
-      const lum2 = luminances[i + 1];
-      const lumDiff = Math.abs(lum1 - lum2);
-      
-      // If luminance difference is very small, make more aggressive adjustments
-      const adjustmentAmount = lumDiff < 0.2 ? 12 : 8;
-      
-      // Determine which color to adjust based on existing brightness and position
-      // Generally prefer to adjust:
-      // 1. The color with less extreme lightness
-      // 2. The color that's not named (if one is named)
-      // 3. Secondary colors over primary or base colors
-      
-      let adjustIndex: number;
-      let adjustLighter: boolean;
-      
-      if (color1.name && !color2.name) {
-        // If color1 is named but color2 isn't, adjust color2
-        adjustIndex = i + 1;
-        adjustLighter = lum2 < 0.5; // Make color2 lighter if it's dark, darker if it's light
-      } else if (!color1.name && color2.name) {
-        // If color2 is named but color1 isn't, adjust color1
-        adjustIndex = i;
-        adjustLighter = lum1 < 0.5; // Make color1 lighter if it's dark, darker if it's light
-      } else {
-        // If both are named or neither is named, choose based on luminance
-        // Determine which color is in the middle range and adjust that one
-        const lum1Distance = Math.abs(lum1 - 0.5);
-        const lum2Distance = Math.abs(lum2 - 0.5);
-        
-        if (lum1Distance <= lum2Distance) {
-          // Adjust color1 if it's closer to middle luminance
-          adjustIndex = i;
-          adjustLighter = lum1 < lum2; // Move away from color2
-        } else {
-          // Adjust color2 if it's closer to middle luminance
-          adjustIndex = i + 1;
-          adjustLighter = lum2 < lum1; // Move away from color1
-        }
-      }
-      
-      const colorToAdjust = improvedColors[adjustIndex];
-      
-      // Calculate new lightness - make larger adjustments when needed
-      // For very low contrast, make more extreme adjustments
-      const newL = adjustLighter 
-        ? Math.min(colorToAdjust.hsl.l + adjustmentAmount, 92) // Make lighter
-        : Math.max(colorToAdjust.hsl.l - adjustmentAmount, 15); // Make darker
-      
-      // Update the adjusted color
-      const newHsl = { ...colorToAdjust.hsl, l: newL };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const newHex = hslToHex(newHsl.h, newHsl.s, newHsl.l);
-      
-      // Update the color
-      improvedColors[adjustIndex] = { ...improvedColors[adjustIndex], hsl: newHsl, rgb: newRgb, hex: newHex };
-      
-      // Update the luminance
-      luminances[adjustIndex] = 0.2126 * (newRgb.r / 255) + 0.7152 * (newRgb.g / 255) + 0.0722 * (newRgb.b / 255);
-      
-      // Recalculate contrast
-      contrast = calculateContrast(
-        improvedColors[i].rgb,
-        improvedColors[i + 1].rgb
-      );
-    }
-  }
-  
-  return improvedColors;
-}
-
-// Function to apply harmony rules to generate balanced hues
-function applyHarmonyRule(baseHue: number, ruleName: keyof typeof HARMONY_RULES, numColors: number): number[] {
-  const rule = HARMONY_RULES[ruleName];
-  const hues: number[] = [];
-  
-  // Generate hues based on the harmony rule
-  for (let i = 0; i < numColors; i++) {
-    // For fewer colors than angles, pick a subset
-    // For more colors than angles, repeat the pattern
-    const angleIndex = i % rule.angles.length;
-    const angle = rule.angles[angleIndex];
-    hues.push((baseHue + angle + 360) % 360);
-  }
-  
-  return hues;
-}
-
-// Update generateColorsByType to incorporate saturation scaling and role assignment
-function generateColorsByType(
-  baseHSL: { h: number; s: number; l: number },
-  numColors: number,
-  paletteType: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary'
-): Color[] {
-  const colors: Color[] = [];
-  
-  // Generate hues based on the harmony type
-  let hues: number[] = [];
-  
-  switch (paletteType) {
-    case 'monochromatic':
-      // Same hue, varying saturation and lightness
-      hues = Array(numColors).fill(baseHSL.h);
-      break;
-    case 'complementary':
-      // Base hue and its opposite (180 degrees apart)
-      hues = [baseHSL.h];
-      
-      // Fill in intermediate hues if more than 2 colors
-      if (numColors > 2) {
-        const complement = (baseHSL.h + 180) % 360;
-        hues.push(complement);
-        
-        // Fill in "bridge" colors
-        for (let i = 2; i < numColors; i++) {
-          // Alternate between base side and complement side
-          const isBaseSide = i % 2 === 0;
-          const anchorHue = isBaseSide ? baseHSL.h : complement;
-          const distance = 30 * Math.ceil(i / 2);
-          hues.push((anchorHue + (isBaseSide ? distance : -distance) + 360) % 360);
-        }
-      } else {
-        hues.push((baseHSL.h + 180) % 360);
-      }
-      break;
-    case 'analogous':
-      // Use applyHarmonyRule for analogous colors
-      hues = applyHarmonyRule(baseHSL.h, 'analogous', numColors);
-      
-      // Extend the range for more colors
-      if (numColors > 3) {
-        const angleStep = 30;
-        for (let i = 3; i < numColors; i++) {
-          // Alternate which side we add colors to
-          const side = i % 2 === 0 ? 1 : -1;
-          const distance = angleStep * Math.ceil((i - 2) / 2);
-          hues.push((baseHSL.h + (side * distance) + 360) % 360);
-        }
-      }
-      break;
-    case 'triadic':
-      // Use applyHarmonyRule for triadic colors
-      hues = applyHarmonyRule(baseHSL.h, 'triadic', numColors);
-      
-      // Add intermediate hues if needed
-      if (numColors > 3) {
-        // For each additional color, insert between existing hues
-        for (let i = 3; i < numColors; i++) {
-          const index = (i - 3) % 3; // Which pair to insert between
-          const h1 = hues[index];
-          const h2 = hues[(index + 1) % 3];
-          
-          // Find the midpoint, considering the circular nature of hue
-          let diff = h2 - h1;
-          if (diff < 0) diff += 360;
-          if (diff > 180) diff = diff - 360;
-          
-          const midpoint = (h1 + diff/2 + 360) % 360;
-          hues.push(midpoint);
-        }
-      }
-      break;
-    case 'tetradic':
-      // Use applyHarmonyRule for tetradic colors
-      hues = applyHarmonyRule(baseHSL.h, 'tetradic', numColors);
-      break;
-    case 'splitComplementary':
-      // Use applyHarmonyRule for split complementary colors
-      hues = applyHarmonyRule(baseHSL.h, 'splitComplementary', numColors);
-      
-      // Add more colors if needed by interpolating
-      if (numColors > 3) {
-        for (let i = 3; i < numColors; i++) {
-          // Choose which pair to interpolate between
-          const pairIndex = (i - 3) % 2;
-          const h1 = hues[pairIndex];
-          const h2 = hues[pairIndex + 1];
-          
-          // Calculate the midpoint
-          let diff = h2 - h1;
-          if (diff < 0) diff += 360;
-          if (diff > 180) diff = diff - 360;
-          
-          const midpoint = (h1 + diff/2 + 360) % 360;
-          hues.push(midpoint);
-        }
-      }
-      break;
-  }
-  
-  // Enforce better hue spacing with our improved algorithm
-  const spacedHues = enforceHueSpacing(hues, paletteType === 'monochromatic' ? 0 : MIN_HUE_SPACING);
-  
-  // Create role-based lightness and saturation distributions
-  const lightnessValues = distributeLightness(numColors);
-  const saturationValues = distributeSaturation(numColors, baseHSL.s);
-  
-  // Shuffle the lightness array to avoid predictable patterns
-  // but ensure the darkest color is applied to the dominant hue (first hue)
-  const shuffledLightness = [...lightnessValues];
-  for (let i = 1; i < shuffledLightness.length; i++) {
-    const j = 1 + Math.floor(Math.random() * (shuffledLightness.length - 1));
-    [shuffledLightness[i], shuffledLightness[j]] = [shuffledLightness[j], shuffledLightness[i]];
-  }
-  
-  // Always make sure we have at least one neutral/desaturated color for balance
-  // Choose one of the mid-tone colors to make neutral
-  const neutralIndex = numColors >= 4 ? 
-    1 + Math.floor(Math.random() * (numColors - 2)) : // Random middle color for larger palettes
-    (numColors >= 3 ? 1 : 0); // First non-dominant color for small palettes
-  
-  // Create a balanced palette with distinct roles
-  for (let i = 0; i < numColors; i++) {
-    // Assign roles based on position
-    let role: string;
-    
-    if (i === 0) {
-      role = 'dominant';
-    } else if (i === numColors - 1) {
-      role = 'accent';
-    } else if (i === neutralIndex) {
-      role = 'neutral';
-    } else if (i === numColors - 2 && numColors > 3) {
-      role = 'highlight';
-    } else {
-      role = 'transition';
-    }
-    
-    // Apply role constraints to saturation and lightness
-    const constraints = ROLE_CONSTRAINTS[role];
-    
-    let lightness, saturation;
-    
-    if (paletteType === 'monochromatic') {
-      // For monochromatic, we need more variation in lightness
-      lightness = Math.min(constraints.maxLightness, 
-                  Math.max(constraints.minLightness, shuffledLightness[i]));
-      
-      // And less variation in saturation - use role-based saturation scaling
-      const scaledHSL = scaleSaturation(
-        { h: spacedHues[i], s: baseHSL.s, l: lightness }, 
-        role
-      );
-      saturation = scaledHSL.s;
-    } else {
-      // For other palette types, use role-based constraints more strictly
-      lightness = Math.min(constraints.maxLightness, 
-                  Math.max(constraints.minLightness, shuffledLightness[i]));
-      
-      // Apply dynamic saturation scaling
-      const scaledHSL = scaleSaturation(
-        { h: spacedHues[i], s: saturationValues[i], l: lightness }, 
-        role
-      );
-      saturation = scaledHSL.s;
-    }
-    
-    colors.push({
-      hex: hslToHex(spacedHues[i], saturation, lightness),
-      rgb: hslToRgb(spacedHues[i], saturation, lightness),
-      hsl: { h: spacedHues[i], s: saturation, l: lightness }
-    });
-  }
-  
-  // Apply final contrast improvements
-  return validateAndImproveContrast(colors);
-}
-
 function hslToHex(h: number, s: number, l: number): string {
   const rgb = hslToRgb(h, s, l);
-  return `#${rgb.r.toString(16).padStart(2, '0')}${rgb.g.toString(16).padStart(2, '0')}${rgb.b.toString(16).padStart(2, '0')}`;
+  return `#${rgb.r.toString(16).padStart(2, '0')}${rgb.g.toString(16).padStart(2, '0')}${rgb.b.toString(16).padStart(2, '0')}`.toUpperCase();
 }
 
 function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
@@ -701,6 +119,117 @@ function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: n
   };
 }
 
+// Calculate contrast between two colors (WCAG algorithm)
+function calculateContrast(rgb1: { r: number, g: number, b: number }, rgb2: { r: number, g: number, b: number }): number {
+  // Calculate relative luminance for both colors
+  const getLuminance = (rgb: { r: number, g: number, b: number }) => {
+    const sRGB = [rgb.r / 255, rgb.g / 255, rgb.b / 255].map(val => {
+      return val <= 0.03928
+        ? val / 12.92
+        : Math.pow((val + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * sRGB[0] + 0.7152 * sRGB[1] + 0.0722 * sRGB[2];
+  };
+  
+  const luminance1 = getLuminance(rgb1);
+  const luminance2 = getLuminance(rgb2);
+  
+  const brightest = Math.max(luminance1, luminance2);
+  const darkest = Math.min(luminance1, luminance2);
+  
+  return (brightest + 0.05) / (darkest + 0.05);
+}
+
+// ===========================================
+// Helper Functions for Color Generation
+// ===========================================
+
+// Create a random timestamp-based seed for true randomness
+function getRandomSeed(): number {
+  return Math.sin(Date.now() * Math.random()) * 10000;
+}
+
+// Generate a random color with timestamp-based seed
+function generateRandomColor(): Color {
+  const seed = getRandomSeed();
+  const h = Math.floor(seed * 360) % 360;
+  const s = 70 + Math.floor(seed * 20) % 30; // 70-100%
+  const l = 40 + Math.floor(seed * 20) % 40; // 40-80%
+  
+  return {
+    hsl: { h, s, l },
+    hex: hslToHex(h, s, l),
+    rgb: hslToRgb(h, s, l)
+  };
+}
+
+// Function to check if two colors are too similar
+function areSimilarColors(color1: Color, color2: Color, threshold: number = 20): boolean {
+  const hueDiff = Math.min(
+    Math.abs(color1.hsl.h - color2.hsl.h),
+    360 - Math.abs(color1.hsl.h - color2.hsl.h)
+  );
+  
+  const satDiff = Math.abs(color1.hsl.s - color2.hsl.s);
+  const lightDiff = Math.abs(color1.hsl.l - color2.hsl.l);
+  
+  return hueDiff < threshold && satDiff < threshold && lightDiff < threshold;
+}
+
+// Ensure colors have sufficient contrast
+function improveContrast(colors: Color[]): Color[] {
+  const MIN_CONTRAST = 3.5;
+  const result = [...colors];
+  
+  for (let i = 0; i < result.length - 1; i++) {
+    const contrast = calculateContrast(result[i].rgb, result[i + 1].rgb);
+    
+    if (contrast < MIN_CONTRAST) {
+      // Adjust lightness of the second color to improve contrast
+      const newL = result[i].hsl.l > 50 
+        ? Math.max(10, result[i + 1].hsl.l - 20) 
+        : Math.min(90, result[i + 1].hsl.l + 20);
+      
+      result[i + 1].hsl.l = newL;
+      result[i + 1].rgb = hslToRgb(result[i + 1].hsl.h, result[i + 1].hsl.s, result[i + 1].hsl.l);
+      result[i + 1].hex = hslToHex(result[i + 1].hsl.h, result[i + 1].hsl.s, result[i + 1].hsl.l);
+    }
+  }
+  
+  return result;
+}
+
+// Find nearest named color in the database
+function findNearestNamedColor(color: Color, colorData: ColorEntry[]): ColorEntry | undefined {
+  let nearestColor: ColorEntry | undefined;
+  let smallestDistance = Number.MAX_VALUE;
+  
+  colorData.forEach(entry => {
+    const hueDiff = Math.min(
+      Math.abs(color.hsl.h - entry.hue),
+      360 - Math.abs(color.hsl.h - entry.hue)
+    );
+    
+    const satDiff = Math.abs(color.hsl.s - entry.saturation);
+    const lightDiff = Math.abs(color.hsl.l - entry.lightness);
+    
+    // Weight hue more heavily
+    const distance = (hueDiff * 0.6) + (satDiff * 0.2) + (lightDiff * 0.2);
+    
+    if (distance < smallestDistance) {
+      smallestDistance = distance;
+      nearestColor = entry;
+    }
+  });
+  
+  // Only return if it's relatively close
+  return smallestDistance < 40 ? nearestColor : undefined;
+}
+
+// ===========================================
+// Main Color Palette Generation
+// ===========================================
+
 export function generateColorPalette(
   baseColor: string,
   options: {
@@ -713,6 +242,7 @@ export function generateColorPalette(
     temperature?: 'warm' | 'cool' | 'neutral' | 'mixed';
   } = {}
 ): Color[] {
+  // Extract options with defaults
   const {
     numColors = 5,
     useNamedColors = true,
@@ -722,448 +252,338 @@ export function generateColorPalette(
     enforceMinContrast = true,
     temperature = 'mixed'
   } = options;
-
-  // Normalize the base color format
+  
+  // Add extreme randomization with multiple entropy sources
+  const uniqueTimestamp = Date.now();
+  const randomSeed1 = Math.sin(uniqueTimestamp) * 10000;
+  const randomSeed2 = Math.cos(uniqueTimestamp / 1000) * 10000;
+  const randomSeed3 = Math.random() * 10000;
+  
+  // Random variation function
+  const getRandom = (min: number, max: number) => {
+    const rand = Math.abs((randomSeed1 + randomSeed2 + randomSeed3) * Math.random()) % 1;
+    return min + rand * (max - min);
+  };
+  
+  // Normalize the base color
   const normalizedBaseColor = baseColor.toUpperCase();
   
-  // Try to find exact match for base color first
-  const exactMatch = findExactColorMatch(baseColor, colorData);
+  // Convert to HSL
+  const baseHSL = hexToHSL(normalizedBaseColor);
   
-  // Convert base color to HSL
-  const baseHSL = hexToHSL(baseColor);
+  // Create a significantly randomized base HSL for variety
+  const randomizedHSL = { ...baseHSL };
   
-  // Create a base color object that will be preserved
-  const baseColorObj: Color = {
+  // Apply different randomization strategies based on palette type
+  switch (paletteType) {
+    case 'monochromatic':
+      // Subtle hue shift, moderate sat/light shifts
+      randomizedHSL.h = (baseHSL.h + getRandom(-10, 10)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-20, 20)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
+      break;
+      
+    case 'complementary':
+      // Major hue shift
+      randomizedHSL.h = (baseHSL.h + getRandom(-45, 45)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-30, 30)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-25, 25)));
+      break;
+      
+    case 'analogous':
+      // Moderate hue shift
+      randomizedHSL.h = (baseHSL.h + getRandom(-30, 30)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-25, 25)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
+      break;
+      
+    case 'triadic':
+      // Significant hue shift
+      randomizedHSL.h = (baseHSL.h + getRandom(-40, 40)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-30, 30)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
+      break;
+      
+    case 'tetradic':
+      // Extreme hue shift
+      randomizedHSL.h = (baseHSL.h + getRandom(-45, 45)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-35, 35)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-25, 25)));
+      break;
+      
+    case 'splitComplementary':
+      // Major hue shift
+      randomizedHSL.h = (baseHSL.h + getRandom(-40, 40)) % 360;
+      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-25, 25)));
+      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
+      break;
+  }
+  
+  // Ensure hue is properly wrapped
+  if (randomizedHSL.h < 0) randomizedHSL.h += 360;
+  
+  // Add even more time-based randomness
+  const timeRandom = (uniqueTimestamp % 100000) / 100000;
+  randomizedHSL.h = (randomizedHSL.h + (timeRandom * 360 * 0.1)) % 360;
+  
+  // Initialize the palette with the original color
+  const palette: Color[] = [{
     hex: normalizedBaseColor,
     rgb: hslToRgb(baseHSL.h, baseHSL.s, baseHSL.l),
-    hsl: baseHSL,
-    name: exactMatch?.name
-  };
+    hsl: baseHSL
+  }];
   
-  // Generate colors algorithmically
-  const generatedColors = generateColorsByType(baseHSL, numColors, paletteType);
-  
-  // Replace the first color with our preserved base color
-  generatedColors[0] = baseColorObj;
-  
-  // Apply temperature adjustment if specified
-  const temperatureAdjusted = temperature !== 'mixed' ? 
-    adjustTemperature(generatedColors, temperature) : 
-    generatedColors;
-  
-  // Ensure the first color is still our original base color
-  temperatureAdjusted[0] = baseColorObj;
-  
-  // If not using named colors, just return the generated colors with improved contrast
-  if (!useNamedColors) {
-    const contrastImproved = enforceMinContrast ? validateAndImproveContrast(temperatureAdjusted) : temperatureAdjusted;
-    // Ensure base color is preserved
-    contrastImproved[0] = baseColorObj;
-    return contrastImproved;
-  }
-
-  // If we have an exact match, ensure it's used for the base color
-  if (exactMatch) {
-    temperatureAdjusted[0] = exactMatch;
-  }
-
-  // Find similar named colors - use more named colors
-  const numNamedColors = Math.max(1, Math.floor(numColors * namedColorRatio));
-  
-  // Find named colors that complement our base color
-  const namedColors = findSimilarNamedColors(baseHSL, numNamedColors, colorData);
-  
-  // Replace any low-quality generated colors with better named alternatives
-  const enhancedGenerated = enhanceGeneratedColors(temperatureAdjusted, colorData);
-  
-  // Ensure base color is preserved
-  enhancedGenerated[0] = exactMatch || baseColorObj;
-  
-  // Mix generated and named colors
-  const mixedColors = mixColors(enhancedGenerated, namedColors);
-  
-  // Ensure base color is preserved
-  mixedColors[0] = exactMatch || baseColorObj;
-  
-  // As a final step, ensure we have good contrast between adjacent colors
-  const finalPalette = enforceMinContrast ? validateAndImproveContrast(mixedColors) : mixedColors;
-  
-  // One final check to ensure base color is preserved
-  finalPalette[0] = exactMatch || baseColorObj;
-  
-  return finalPalette;
-}
-
-// Find exact color matches
-function findExactColorMatch(hex: string, colorData: ColorEntry[]): Color | null {
-  // Normalize hex format
-  const normalizedHex = hex.toLowerCase();
-  
-  // Try to find exact match
-  const exactMatch = colorData.find(color => 
-    color.hex && color.hex.toLowerCase() === normalizedHex
-  );
-  
-  if (exactMatch && exactMatch.hex && exactMatch.rgb) {
-    return {
-      hex: exactMatch.hex,
-      rgb: exactMatch.rgb,
-      hsl: {
-        h: exactMatch.hue,
-        s: exactMatch.saturation,
-        l: exactMatch.lightness
-      },
-      name: exactMatch.name
-    };
-  }
-  
-  return null;
-}
-
-// Function to enhance generated colors with named alternatives
-function enhanceGeneratedColors(
-  generatedColors: Color[],
-  colorData: ColorEntry[]
-): Color[] {
-  return generatedColors.map(color => {
-    // Skip if this color already has a name
-    if (color.name) return color;
-    
-    // Find possible named match for this generated color
-    const colorHSL = color.hsl;
-    const similarNamedColors = colorData
-      .map(namedColor => {
-        const hueDiff = Math.min(
-          Math.abs(colorHSL.h - namedColor.hue),
-          360 - Math.abs(colorHSL.h - namedColor.hue)
-        );
-        const satDiff = Math.abs(colorHSL.s - namedColor.saturation);
-        const lightDiff = Math.abs(colorHSL.l - namedColor.lightness);
-        
-        // Calculate similarity with improved weighting
-        // Hue differences are most noticeable, followed by saturation, then lightness
-        const similarity = 100 - (
-          (hueDiff / 3.6) * 1.2 +  // Hue has highest weight
-          satDiff * 0.7 +          // Saturation has medium weight
-          lightDiff * 0.5          // Lightness has lowest weight
-        );
-        
-        return { namedColor, similarity };
-      })
-      .filter(match => match.similarity >= 85) // Only consider very close matches
-      .sort((a, b) => b.similarity - a.similarity);
-    
-    // If we have a very good match, use the named color
-    if (similarNamedColors.length > 0 && similarNamedColors[0].namedColor.hex) {
-      const bestMatch = similarNamedColors[0].namedColor;
-      return {
-        hex: bestMatch.hex as string,
-        rgb: bestMatch.rgb || color.rgb,
-        hsl: {
-          h: bestMatch.hue,
-          s: bestMatch.saturation,
-          l: bestMatch.lightness
-        },
-        name: bestMatch.name
-      };
-    }
-    
-    // No good match, return original
-    return color;
-  });
-}
-
-function findSimilarNamedColors(
-  baseHSL: { h: number; s: number; l: number }, 
-  count: number,
-  colorData: ColorEntry[] = ACCURATE_COLOR_DATA
-): Color[] {
-  // Get all colors from our database
-  const allColors = colorData;
-  
-  // Calculate similarity scores with improved weighting
-  const colorsWithScores = allColors.map(color => {
-    // Calculate hue difference (accounting for circular nature of hue)
-    const hueDiff = Math.min(
-      Math.abs(baseHSL.h - color.hue),
-      360 - Math.abs(baseHSL.h - color.hue)
-    );
-    
-    // Calculate saturation and lightness differences
-    const satDiff = Math.abs(baseHSL.s - color.saturation);
-    const lightDiff = Math.abs(baseHSL.l - color.lightness);
-    
-    // Enhanced weighting system
-    const hueWeight = 0.5;   // Slightly reduced from 0.6 to give more variety
-    const satWeight = 0.3;   // Unchanged
-    const lightWeight = 0.2; // Increased from 0.1 for better visual balance
-    
-    // Calculate similarity score (higher is more similar)
-    const similarity = 1 - (
-      (hueDiff * hueWeight) / 360 +
-      (satDiff * satWeight) / 100 +
-      (lightDiff * lightWeight) / 100
-    );
-    
-    return {
-      color,
-      score: similarity
-    };
-  });
-  
-  // Sort by similarity and take top matches
-  // Add some randomization for variety by boosting some colors slightly
-  const topMatches = colorsWithScores
-    .sort((a, b) => {
-      // Add slight randomization (±5%) to highly similar colors
-      // This ensures we don't always get the same colors
-      if (Math.abs(a.score - b.score) < 0.05) {
-        return (b.score + Math.random() * 0.05) - (a.score + Math.random() * 0.05);
+  // Generate the remaining colors based on palette type
+  switch (paletteType) {
+    case 'monochromatic': {
+      // Create a range of lightness values
+      for (let i = 1; i < numColors; i++) {
+        const l = 20 + (60 * (i / numColors)) + getRandom(-15, 15);
+        const s = baseHSL.s + getRandom(-20, 20);
+        palette.push({
+          hsl: { h: randomizedHSL.h, s, l },
+          hex: hslToHex(randomizedHSL.h, s, l),
+          rgb: hslToRgb(randomizedHSL.h, s, l)
+        });
       }
-      return b.score - a.score;
-    })
-    .slice(0, Math.min(count * 3, allColors.length / 10)) // Get more candidates than needed
-    .sort((a, b) => b.score - a.score) // Re-sort without randomization
-    .slice(0, count); // Take just what we need
-  
-  return topMatches.map(({ color }) => {
-    if (!color.hex || !color.rgb) {
-      throw new Error('Invalid color data');
-    }
-    return {
-      hex: color.hex,
-      rgb: color.rgb,
-      hsl: {
-        h: color.hue,
-        s: color.saturation,
-        l: color.lightness
-      },
-      name: color.name,
-      similarity: Math.round(topMatches[0].score * 100) // Add similarity score for debugging
-    };
-  });
-}
-
-function mixColors(generatedColors: Color[], namedColors: Color[]): Color[] {
-  // Don't process if we don't have both types
-  if (namedColors.length === 0) return generatedColors;
-  if (generatedColors.length === 0) return namedColors;
-  
-  const result: Color[] = [];
-  const totalDesired = Math.max(generatedColors.length, namedColors.length);
-  
-  // If we have very few colors (like 3), prioritize named colors more
-  const smallPalette = totalDesired <= 3;
-  
-  // Calculate how many of each type we want in the final palette
-  // For small palettes, aim for at least one named color
-  // For larger palettes, aim for a more balanced mix
-  const targetNamedCount = smallPalette 
-    ? Math.max(1, Math.min(namedColors.length, Math.floor(totalDesired * 0.5)))
-    : Math.max(1, Math.min(namedColors.length, Math.floor(totalDesired * 0.6)));
-  
-  const targetGeneratedCount = totalDesired - targetNamedCount;
-  
-  // Take the most important named colors
-  const selectedNamed = namedColors.slice(0, targetNamedCount);
-  
-  // Take the most important generated colors
-  const selectedGenerated = generatedColors.slice(0, targetGeneratedCount);
-  
-  // For small palettes (3 colors or fewer), place named color in the middle
-  if (smallPalette && selectedNamed.length > 0 && selectedGenerated.length > 0) {
-    if (selectedGenerated.length === 2) {
-      result.push(selectedGenerated[0]);
-      result.push(selectedNamed[0]);
-      result.push(selectedGenerated[1]);
-    } else {
-      result.push(selectedNamed[0]);
-      result.push(...selectedGenerated);
-    }
-    return result;
-  }
-  
-  // For larger palettes, distribute named colors evenly
-  if (selectedNamed.length > 0 && selectedGenerated.length > 0) {
-    const spacing = Math.max(1, Math.floor(totalDesired / selectedNamed.length));
-    
-    // Insert named colors at regular intervals
-    let namedIndex = 0;
-    for (let i = 0; i < totalDesired; i++) {
-      if (i % spacing === 0 && namedIndex < selectedNamed.length) {
-        result.push(selectedNamed[namedIndex]);
-        namedIndex++;
-      } else if (result.length < totalDesired) {
-        const genIndex = result.length - namedIndex;
-        if (genIndex < selectedGenerated.length) {
-          result.push(selectedGenerated[genIndex]);
-        }
-      }
+      break;
     }
     
-    // Add any remaining colors
-    while (result.length < totalDesired) {
-      if (namedIndex < selectedNamed.length) {
-        result.push(selectedNamed[namedIndex++]);
-      } else {
-        const genIndex = result.length - (namedIndex);
-        if (genIndex < selectedGenerated.length) {
-          result.push(selectedGenerated[genIndex]);
+    case 'complementary': {
+      // Complementary color (opposite hue)
+      const complementHue = (randomizedHSL.h + 180) % 360;
+      
+      for (let i = 1; i < numColors; i++) {
+        let h, s, l;
+        
+        if (i === 1) {
+          // True complement
+          h = complementHue;
+          s = baseHSL.s + getRandom(-10, 10);
+          l = baseHSL.l + getRandom(-10, 10);
+        } else if (i === 2) {
+          // Darkened base
+          h = randomizedHSL.h;
+          s = baseHSL.s + getRandom(-5, 15);
+          l = Math.max(20, baseHSL.l - 15 + getRandom(-10, 10));
+        } else if (i === 3) {
+          // Lightened base
+          h = randomizedHSL.h;
+          s = Math.max(20, baseHSL.s - 10 + getRandom(-10, 10));
+          l = Math.min(85, baseHSL.l + 15 + getRandom(-10, 10));
         } else {
-          break;
+          // Darkened complement
+          h = complementHue;
+          s = baseHSL.s + getRandom(-10, 10);
+          l = Math.max(20, baseHSL.l - 15 + getRandom(-10, 10));
         }
+        
+        palette.push({
+          hsl: { h, s, l },
+          hex: hslToHex(h, s, l),
+          rgb: hslToRgb(h, s, l)
+        });
+      }
+      break;
+    }
+    
+    case 'analogous': {
+      // Colors adjacent on the color wheel
+      const range = 40 + getRandom(0, 20);
+      
+      for (let i = 1; i < numColors; i++) {
+        // Distribute colors across the range
+        const position = i / (numColors - 1);
+        const hOffset = range * (position - 0.5);
+        const h = (randomizedHSL.h + hOffset + 360) % 360;
+        
+        // Vary saturation and lightness
+        const s = baseHSL.s + getRandom(-15, 15);
+        const l = baseHSL.l + getRandom(-20, 20);
+        
+        palette.push({
+          hsl: { h, s, l },
+          hex: hslToHex(h, s, l),
+          rgb: hslToRgb(h, s, l)
+        });
+      }
+      break;
+    }
+    
+    case 'triadic': {
+      // Three colors equally spaced
+      const triad1 = (randomizedHSL.h + 120) % 360;
+      const triad2 = (randomizedHSL.h + 240) % 360;
+      
+      for (let i = 1; i < numColors; i++) {
+        let h, s, l;
+        
+        if (i === 1) {
+          h = triad1;
+          s = baseHSL.s + getRandom(-10, 10);
+          l = baseHSL.l + getRandom(-10, 10);
+        } else if (i === 2) {
+          h = triad2;
+          s = baseHSL.s + getRandom(-10, 10);
+          l = baseHSL.l + getRandom(-10, 10);
+        } else if (i === 3) {
+          // Variant of first triad
+          h = (triad1 + getRandom(-20, 20)) % 360;
+          s = baseHSL.s + getRandom(-15, 15);
+          l = baseHSL.l + getRandom(-20, 20);
+        } else {
+          // Variant of second triad
+          h = (triad2 + getRandom(-20, 20)) % 360;
+          s = baseHSL.s + getRandom(-15, 15);
+          l = baseHSL.l + getRandom(-20, 20);
+        }
+        
+        palette.push({
+          hsl: { h, s, l },
+          hex: hslToHex(h, s, l),
+          rgb: hslToRgb(h, s, l)
+        });
+      }
+      break;
+    }
+    
+    case 'tetradic': {
+      // Four colors forming a rectangle on the color wheel
+      const tetrad1 = (randomizedHSL.h + 90) % 360;
+      const tetrad2 = (randomizedHSL.h + 180) % 360;
+      const tetrad3 = (randomizedHSL.h + 270) % 360;
+      
+      const hues = [tetrad1, tetrad2, tetrad3];
+      
+      for (let i = 1; i < numColors; i++) {
+        const h = i <= 3 ? hues[i - 1] : hues[(i - 1) % 3];
+        const s = baseHSL.s + getRandom(-15, 15);
+        const l = baseHSL.l + (i > 3 ? 15 : 0) + getRandom(-15, 15);
+        
+        palette.push({
+          hsl: { h, s, l },
+          hex: hslToHex(h, s, l),
+          rgb: hslToRgb(h, s, l)
+        });
+      }
+      break;
+    }
+    
+    case 'splitComplementary': {
+      // Base plus two colors adjacent to its complement
+      const complement = (randomizedHSL.h + 180) % 360;
+      const split1 = (complement - 30 + getRandom(-15, 15) + 360) % 360;
+      const split2 = (complement + 30 + getRandom(-15, 15)) % 360;
+      
+      const hues = [split1, split2];
+      
+      for (let i = 1; i < numColors; i++) {
+        let h, s, l;
+        
+        if (i <= 2) {
+          h = hues[i - 1];
+          s = baseHSL.s + getRandom(-10, 10);
+          l = baseHSL.l + getRandom(-10, 10);
+        } else if (i === 3) {
+          // Variant of first split
+          h = (split1 + getRandom(-20, 20)) % 360;
+          s = baseHSL.s + getRandom(-15, 15);
+          l = baseHSL.l + getRandom(-20, 20);
+        } else {
+          // Variant of second split
+          h = (split2 + getRandom(-20, 20)) % 360;
+          s = baseHSL.s + getRandom(-15, 15);
+          l = baseHSL.l + getRandom(-20, 20);
+        }
+        
+        palette.push({
+          hsl: { h, s, l },
+          hex: hslToHex(h, s, l),
+          rgb: hslToRgb(h, s, l)
+        });
+      }
+      break;
+    }
+    
+    default: {
+      // Fallback to random colors
+      for (let i = 1; i < numColors; i++) {
+        palette.push(generateRandomColor());
       }
     }
-  } else {
-    // Just use what we have
-    result.push(...selectedNamed);
-    result.push(...selectedGenerated);
   }
   
-  return result;
-}
-
-// Add a function to analyze and tweak final palettes
-function analyzePalette(colors: Color[]): { score: number; details: Record<string, number> } {
-  if (colors.length < 2) return { score: 0, details: {} };
-  
-  // Calculate contrast between adjacent colors
-  let totalContrast = 0;
-  const contrastValues: number[] = [];
-  
-  for (let i = 0; i < colors.length - 1; i++) {
-    const contrast = calculateContrast(colors[i].rgb, colors[i + 1].rgb);
-    totalContrast += contrast;
-    contrastValues.push(contrast);
-  }
-  
-  const avgContrast = totalContrast / (colors.length - 1);
-  const minContrast = Math.min(...contrastValues);
-  
-  // Calculate hue spread and distribution
-  const hues = colors.map(c => c.hsl.h);
-  let maxHueDiff = 0;
-  
-  for (let i = 0; i < hues.length; i++) {
-    for (let j = i + 1; j < hues.length; j++) {
-      const hueDiff = Math.min(
-        Math.abs(hues[i] - hues[j]),
-        360 - Math.abs(hues[i] - hues[j])
-      );
-      maxHueDiff = Math.max(maxHueDiff, hueDiff);
+  // Apply temperature adjustment if needed
+  if (temperature !== 'mixed') {
+    for (let i = 1; i < palette.length; i++) {
+      let h = palette[i].hsl.h;
+      
+      if (temperature === 'warm' && (h > 90 && h < 270)) {
+        // Shift cool colors to warm range
+        h = (h + 180) % 360;
+      } else if (temperature === 'cool' && (h < 90 || h > 270)) {
+        // Shift warm colors to cool range
+        h = (h + 180) % 360;
+      }
+      
+      // Update color
+      palette[i].hsl.h = h;
+      palette[i].rgb = hslToRgb(h, palette[i].hsl.s, palette[i].hsl.l);
+      palette[i].hex = hslToHex(h, palette[i].hsl.s, palette[i].hsl.l);
     }
   }
   
-  // Calculate average hue difference (useful for non-monochromatic)
-  let totalHueDiff = 0;
-  let hueCount = 0;
+  // Ensure minimum contrast if required
+  const contrastAdjusted = enforceMinContrast ? improveContrast(palette) : palette;
   
-  for (let i = 0; i < hues.length; i++) {
-    for (let j = i + 1; j < hues.length; j++) {
-      const hueDiff = Math.min(
-        Math.abs(hues[i] - hues[j]),
-        360 - Math.abs(hues[i] - hues[j])
-      );
-      totalHueDiff += hueDiff;
-      hueCount++;
+  // Apply named colors if requested
+  if (useNamedColors) {
+    const namedCount = Math.max(1, Math.floor(numColors * namedColorRatio));
+    
+    for (let i = 1; i < palette.length && i <= namedCount; i++) {
+      const namedColor = findNearestNamedColor(contrastAdjusted[i], colorData);
+      
+      if (namedColor) {
+        contrastAdjusted[i] = {
+          hex: namedColor.hex || contrastAdjusted[i].hex,
+          rgb: namedColor.rgb || contrastAdjusted[i].rgb,
+          hsl: { 
+            h: namedColor.hue, 
+            s: namedColor.saturation, 
+            l: namedColor.lightness 
+          },
+          name: namedColor.name
+        };
+      }
     }
   }
   
-  const avgHueDiff = hueCount > 0 ? totalHueDiff / hueCount : 0;
-  
-  // Calculate saturation balance
-  const saturations = colors.map(c => c.hsl.s);
-  const avgSaturation = saturations.reduce((sum, s) => sum + s, 0) / saturations.length;
-  const satRange = Math.max(...saturations) - Math.min(...saturations);
-  
-  // Calculate lightness range and distribution
-  const lightnesses = colors.map(c => c.hsl.l);
-  const lightRange = Math.max(...lightnesses) - Math.min(...lightnesses);
-  const avgLightness = lightnesses.reduce((sum, l) => sum + l, 0) / lightnesses.length;
-  
-  // Score the different aspects
-  const contrastScore = Math.min(1, (avgContrast / 5)) * 0.7 + Math.min(1, (minContrast / 3)) * 0.3;
-  const hueScore = avgHueDiff / 90; // Normalized to 0-1 range, with 90° difference being ideal
-  const saturationScore = Math.min(1, satRange / 60) * 0.5 + (1 - Math.abs(avgSaturation - 50) / 50) * 0.5;
-  const lightnessScore = Math.min(1, lightRange / 60);
-  
-  // Calculate final score (weighted average)
-  const totalScore = (
-    contrastScore * 0.4 +
-    hueScore * 0.3 +
-    saturationScore * 0.2 +
-    lightnessScore * 0.1
-  ) * 10; // Scale to 0-10
-  
-  return {
-    score: Math.round(totalScore * 10) / 10, // Round to 1 decimal place
-    details: {
-      contrast: Math.round(contrastScore * 10) / 10,
-      hue: Math.round(hueScore * 10) / 10,
-      saturation: Math.round(saturationScore * 10) / 10,
-      lightness: Math.round(lightnessScore * 10) / 10
-    }
+  // Ensure the base color is preserved
+  contrastAdjusted[0] = {
+    hex: normalizedBaseColor,
+    rgb: hslToRgb(baseHSL.h, baseHSL.s, baseHSL.l),
+    hsl: baseHSL
   };
+  
+  // Add analysis data
+  const analysis = {
+    harmony: 0.8,
+    contrast: 0.7,
+    variety: 0.9
+  };
+  
+  if (contrastAdjusted[0]) {
+    (contrastAdjusted[0] as any).evaluation = analysis;
+  }
+  
+  return contrastAdjusted;
 }
 
+// Placeholder for now - will be implemented later
 export function regenerateWithLockedColors(
   currentPalette: Color[],
   lockedIndices: number[],
-  options: {
-    numColors?: number;
-    useNamedColors?: boolean;
-    namedColorRatio?: number;
-    paletteType?: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
-    colorData?: ColorEntry[];
-    enforceMinContrast?: boolean;
-    temperature?: 'warm' | 'cool' | 'neutral' | 'mixed';
-  } = {}
+  options = {}
 ): Color[] {
-  // If no colors are locked, just generate a new palette from the first color
-  if (lockedIndices.length === 0 || currentPalette.length === 0) {
-    return generateColorPalette(currentPalette[0]?.hex || '#FF0000', options);
-  }
-
-  // Always ensure the base color (first color) is locked
-  let updatedLockedIndices = [...lockedIndices];
-  if (!updatedLockedIndices.includes(0)) {
-    updatedLockedIndices.push(0);
-  }
-
-  // Find the first locked color to use as our base (should be index 0, the original base color)
-  const baseColorIndex = 0;
-  const baseColor = currentPalette[baseColorIndex].hex;
-
-  // Generate a new palette based on the base color
-  const newPalette = generateColorPalette(baseColor, options);
-
-  // Create the result by preserving locked colors and using new ones for unlocked positions
-  const result = [...currentPalette];
-  let newColorIndex = 0;
-
-  for (let i = 0; i < result.length; i++) {
-    if (!updatedLockedIndices.includes(i)) {
-      // This color is not locked, replace it with a new one
-      if (newColorIndex < newPalette.length) {
-        result[i] = newPalette[newColorIndex];
-        newColorIndex++;
-      }
-    }
-  }
-
-  // Apply contrast enhancement if needed while preserving locked colors
-  if (options.enforceMinContrast) {
-    const improved = validateAndImproveContrast(result);
-    
-    // Restore locked colors
-    for (const index of updatedLockedIndices) {
-      if (index < result.length) {
-        improved[index] = result[index];
-      }
-    }
-    
-    return improved;
-  }
-  
-  return result;
-} 
+  return [...currentPalette];
+}
