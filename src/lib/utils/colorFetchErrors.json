@@ -1,0 +1,77 @@
+[
+  {
+    "networkError": "getaddrinfo ENOTFOUND color-register.org",
+    "name": "Rapeseed Oil",
+    "url": "https://color-register.org/color/rapeseed-oil"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Rustic Pink",
+    "url": "https://color-register.org/color/rustic-pink"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Salem",
+    "url": "https://color-register.org/color/salem"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Salmon",
+    "url": "https://color-register.org/color/salmon"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Saloon",
+    "url": "https://color-register.org/color/saloon"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Salsa",
+    "url": "https://color-register.org/color/salsa"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Salt Box",
+    "url": "https://color-register.org/color/salt-box"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Saltpan",
+    "url": "https://color-register.org/color/saltpan"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Samanthas blue",
+    "url": "https://color-register.org/color/samanthas-blue"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Sambuca",
+    "url": "https://color-register.org/color/sambuca"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Samsung Blue",
+    "url": "https://color-register.org/color/samsung-blue"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "San Felix",
+    "url": "https://color-register.org/color/san-felix"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "San Juan",
+    "url": "https://color-register.org/color/san-juan"
+  },
+  {
+    "networkError": "connect ETIMEDOUT 45.32.133.118:443",
+    "name": "Sanctuary",
+    "url": "https://color-register.org/color/sanctuary"
+  },
+  {
+    "networkError": "read ETIMEDOUT",
+    "name": "Scrumptious",
+    "url": "https://color-register.org/color/scrumptious"
+  }
+]

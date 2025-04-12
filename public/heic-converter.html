@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEIC to JPEG Converter</title>
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #0070f3;
+      margin-bottom: 20px;
+    }
+    .dropzone {
+      border: 2px dashed #ccc;
+      border-radius: 5px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+    }
+    .dropzone:hover, .dropzone.active {
+      border-color: #0070f3;
+      background-color: rgba(0, 112, 243, 0.05);
+    }
+    .button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    .button:hover {
+      background-color: #0051cc;
+    }
+    .button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .preview {
+      margin-top: 20px;
+      display: none;
+    }
+    .preview img {
+      max-width: 100%;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .error {
+      color: #e53e3e;
+      background-color: #fed7d7;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+    .loading {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+    .loading-spinner {
+      border: 5px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 5px solid #0070f3;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>HEIC to JPEG Converter</h1>
+    <p>Convert your HEIC images to JPEG format that works in all browsers.</p>
+
+    <div id="dropzone" class="dropzone">
+      <p>Drag & drop your HEIC files here or click to select</p>
+      <input type="file" id="fileInput" accept=".heic,.heif" style="display: none;">
+    </div>
+
+    <button id="convertBtn" class="button" disabled>Convert to JPEG</button>
+    
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <p>Converting... This may take a moment.</p>
+    </div>
+
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="preview" class="preview">
+      <h3>Preview:</h3>
+      <img id="previewImage" src="" alt="Converted image">
+      <div style="margin-top: 15px;">
+        <a id="downloadLink" class="button" href="#" download="converted.jpg">Download JPEG</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('fileInput');
+      const convertBtn = document.getElementById('convertBtn');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const preview = document.getElementById('preview');
+      const previewImage = document.getElementById('previewImage');
+      const downloadLink = document.getElementById('downloadLink');
+      
+      let selectedFile = null;
+
+      // Dropzone functionality
+      dropzone.addEventListener('click', () => fileInput.click());
+      
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('active');
+      });
+      
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('active');
+      });
+      
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('active');
+        
+        if (e.dataTransfer.files.length) {
+          handleFile(e.dataTransfer.files[0]);
+        }
+      });
+      
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+          handleFile(e.target.files[0]);
+        }
+      });
+      
+      function handleFile(file) {
+        // Reset UI
+        error.style.display = 'none';
+        preview.style.display = 'none';
+        
+        // Check if file is HEIC/HEIF
+        if (!file.name.toLowerCase().endsWith('.heic') && 
+            !file.name.toLowerCase().endsWith('.heif')) {
+          showError('Please select a HEIC or HEIF file.');
+          selectedFile = null;
+          convertBtn.disabled = true;
+          return;
+        }
+        
+        selectedFile = file;
+        dropzone.textContent = `Selected: ${file.name}`;
+        convertBtn.disabled = false;
+      }
+      
+      function showError(message) {
+        error.textContent = message;
+        error.style.display = 'block';
+        loading.style.display = 'none';
+      }
+      
+      convertBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        
+        loading.style.display = 'block';
+        error.style.display = 'none';
+        preview.style.display = 'none';
+        convertBtn.disabled = true;
+        
+        try {
+          const result = await heic2any({
+            blob: selectedFile,
+            toType: 'image/jpeg',
+            quality: 0.8
+          });
+          
+          // Convert blob to object URL
+          const url = URL.createObjectURL(result);
+          
+          // Update preview
+          previewImage.src = url;
+          downloadLink.href = url;
+          downloadLink.download = selectedFile.name.replace(/\.(heic|heif)$/i, '.jpg');
+          
+          preview.style.display = 'block';
+        } catch (e) {
+          console.error('Conversion error:', e);
+          showError('Failed to convert the image. Try a smaller image or a different browser (Safari works best).');
+        } finally {
+          loading.style.display = 'none';
+          convertBtn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html> 
