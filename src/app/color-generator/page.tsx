@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { generateColorPalette, regenerateWithLockedColors, Color } from '@/lib/utils/generateColors';
+import * as colorUtils from '@/lib/utils';
+import type { Color } from '@/lib/utils/generateColors';
 import { ACCURATE_COLOR_DATA } from '@/lib/utils/fixedAccurateColorData';
 
 export default function ColorGenerator() {
@@ -211,7 +212,7 @@ export default function ColorGenerator() {
       return paletteType;
     })();
 
-    const newPalette = generateColorPalette(randomizedBaseColor, {
+    const newPalette = colorUtils.generateColorPalette(randomizedBaseColor, {
       numColors,
       useNamedColors,
       namedColorRatio,
@@ -231,12 +232,12 @@ export default function ColorGenerator() {
     addToHistory(newPalette);
     
     // Check if we have evaluation metrics
-    if (newPalette[0]?.evaluation) {
-      setAnalysisScore(newPalette[0].evaluation.totalScore);
+    if (newPalette[0] && (newPalette[0] as any).evaluation) {
+      setAnalysisScore((newPalette[0] as any).evaluation.totalScore);
       
       // Generate message based on score
       let message = '';
-      const score = newPalette[0].evaluation.totalScore;
+      const score = (newPalette[0] as any).evaluation.totalScore;
       
       if (score >= 9.0) {
         message = 'Excellent color palette with exceptional harmony and contrast.';
@@ -365,7 +366,7 @@ export default function ColorGenerator() {
       return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
     })();
 
-    const newPalette = regenerateWithLockedColors(palette, lockedColors, {
+    const newPalette = colorUtils.regenerateWithLockedColors(palette, lockedColors, {
       numColors,
       useNamedColors,
       namedColorRatio,
@@ -384,12 +385,12 @@ export default function ColorGenerator() {
     addToHistory(newPalette);
     
     // Check if we have evaluation metrics
-    if (newPalette[0]?.evaluation) {
-      setAnalysisScore(newPalette[0].evaluation.totalScore);
+    if (newPalette[0] && (newPalette[0] as any).evaluation) {
+      setAnalysisScore((newPalette[0] as any).evaluation.totalScore);
       
       // Generate message based on score
       let message = '';
-      const score = newPalette[0].evaluation.totalScore;
+      const score = (newPalette[0] as any).evaluation.totalScore;
       
       if (score >= 9.0) {
         message = 'Excellent color palette with exceptional harmony and contrast.';

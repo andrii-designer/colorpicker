@@ -12,7 +12,7 @@ import ImageDropZone from '../components/ImageDropZone';
 import { toast } from 'react-hot-toast';
 import ImageUploader from '@/components/ColorPalette/ImageUploader';
 import ColorDisplay from '@/components/ColorPalette/ColorDisplay';
-import * as colorUtils from '@/lib/utils/colorExports';
+import * as colorUtils from '@/lib/utils';
 import ColorThief from 'colorthief';
 import React from 'react';
 import { 

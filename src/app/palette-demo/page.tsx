@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { generateColorPalette } from '@/lib/utils/generateColors';
+import * as colorUtils from '@/lib/utils';
 import { STATIC_COLOR_DATA } from '@/lib/utils/colorDataStatic';
 
 export default function PaletteDemo() {
-  const [baseColor, setBaseColor] = useState('#3498db');
+  const [baseColor, setBaseColor] = useState('#1E90FF');
   const [palette, setPalette] = useState<any[]>([]);
   const [numColors, setNumColors] = useState(5);
   const [useNamedColors, setUseNamedColors] = useState(true);
@@ -18,7 +18,7 @@ export default function PaletteDemo() {
   
   const generatePalette = () => {
     try {
-      const colors = generateColorPalette(baseColor, {
+      const colors = colorUtils.generateColorPalette(baseColor, {
         numColors,
         useNamedColors,
         namedColorRatio,
