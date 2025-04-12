@@ -5,16 +5,13 @@ import Image from 'next/image';
 import tinycolor from 'tinycolor2';
 import { motion } from 'framer-motion';
 import { FiImage, FiCheck, FiX, FiRefreshCw, FiAward, FiArrowLeft, FiArrowRight, FiChevronDown, FiSave, FiDownload, FiCopy, FiEdit3 } from 'react-icons/fi';
-import { BsEyedropper } from 'react-icons/bs';
-import ExportPanel from '../components/ExportPanel';
-import ColorCard from '../components/ColorCard';
-import ImageDropZone from '../components/ImageDropZone';
 import { toast } from 'react-hot-toast';
 import ImageUploader from '@/components/ColorPalette/ImageUploader';
 import ColorDisplay from '@/components/ColorPalette/ColorDisplay';
 import * as colorUtils from '@/lib/utils';
 import ColorThief from 'colorthief';
 import React from 'react';
+import { HexColorPicker } from 'react-colorful';
 import { 
   extractEnhancedColorsFromImage, 
   enhanceSunsetColorDetection,
@@ -333,6 +330,67 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${rHex}${gHex}${bHex}`.toUpperCase();
 }
 
+// Helper function to convert hex to HSL
+function hexToHSL(hex: string): { h: number; s: number; l: number } {
+  // Remove the hash if it exists
+  hex = hex.replace('#', '');
+  
+  // Convert hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+  
+  // Find min and max values
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  
+  // Calculate lightness
+  let l = (max + min) / 2;
+  
+  // Calculate saturation
+  let s = 0;
+  if (max !== min) {
+    s = l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+  }
+  
+  // Calculate hue
+  let h = 0;
+  if (max !== min) {
+    switch (max) {
+      case r:
+        h = (g - b) / (max - min) + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / (max - min) + 2;
+        break;
+      case b:
+        h = (r - g) / (max - min) + 4;
+        break;
+    }
+    h /= 6;
+  }
+  
+  // Convert to 0-360 degrees for hue and 0-100 percent for saturation and lightness
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
+}
+
+// Helper function to convert hex to RGB
+function hexToRGB(hex: string): { r: number; g: number; b: number } {
+  // Remove the hash if it exists
+  hex = hex.replace('#', '');
+  
+  // Convert hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  return { r, g, b };
+}
+
 // Define a type for storing palette history
 type PaletteState = {
   colors: string[];
@@ -450,7 +508,7 @@ export default function Home() {
   const [baseColors, setBaseColors] = useState<string[]>([]);
   const [baseColorAdvice, setBaseColorAdvice] = useState<string>('');
   const [baseScore, setBaseScore] = useState<number>(0);
-  const [paletteType, setPaletteType] = useState<'analogous' | 'monochromatic' | 'complementary' | 'triadic' | 'tetradic'>('complementary');
+  const [paletteType, setPaletteType] = useState<'analogous' | 'monochromatic' | 'complementary' | 'triadic' | 'tetradic' | 'splitComplementary'>('complementary');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isFirstGeneration, setIsFirstGeneration] = useState(true);
   
@@ -511,6 +569,13 @@ export default function Home() {
     setBaseUndoDisabled(baseHistory.position <= 0);
     setBaseRedoDisabled(baseHistory.position >= baseHistory.history.length - 1);
   }, [baseHistory.position, baseHistory.history.length]);
+
+  // Generate palette when baseColor or paletteType changes
+  useEffect(() => {
+    if (baseColor) {
+      handleGenerateFromBase();
+    }
+  }, [baseColor, paletteType]);
 
   const handleImageSelect = async (imageData: string) => {
     setSelectedImage(imageData);
@@ -1093,12 +1158,13 @@ export default function Home() {
         setIsFirstGeneration(false);
       }
       
-      // Instead of manually implementing color generation here, use our improved algorithm
-      // from the utils/generateColors.ts file that properly handles extreme colors
+      // Use our improved Adobe-style algorithm from utils/generateColors.ts
       const generatedPalette = colorUtils.generateColorPalette(baseColor, {
         numColors: 5,
         paletteType: paletteType as 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary',
-        enforceMinContrast: true
+        enforceMinContrast: true,
+        useAdobeAlgorithm: true, // Enable Adobe-style algorithm by default
+        seed: Date.now() + Math.random() // Add random seed to ensure different results each time
       });
       
       // Convert the generated palette to string array of hex colors
@@ -1604,20 +1670,24 @@ export default function Home() {
           <div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Base Color</label>
-              <div className="flex items-center">
-                <input
-                  type="color"
-                  value={baseColor}
-                  onChange={(e) => setBaseColor(e.target.value)}
-                  className="h-10 w-20 rounded cursor-pointer"
+              <HexColorPicker
+                color={baseColor}
+                onChange={setBaseColor}
+                className="w-full mb-4"
+              />
+              
+              <div className="flex items-center mt-2">
+                <div 
+                  className="w-10 h-10 mr-2 rounded" 
+                  style={{ backgroundColor: baseColor }}
                 />
                 <input
                   type="text"
                   value={baseColor}
                   onChange={(e) => setBaseColor(e.target.value)}
-                  className="ml-2 p-2 border rounded font-mono text-sm flex-1"
+                  className="p-2 border rounded w-full"
                 />
-            </div>
+              </div>
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Palette Type</label>
@@ -1631,6 +1701,7 @@ export default function Home() {
                 <option value="complementary">Complementary</option>
                 <option value="triadic">Triadic</option>
                 <option value="tetradic">Tetradic</option>
+                <option value="splitComplementary">Split Complementary</option>
               </select>
             </div>
           </div>
