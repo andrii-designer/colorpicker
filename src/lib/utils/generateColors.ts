@@ -723,26 +723,46 @@ export function generateColorPalette(
     temperature = 'mixed'
   } = options;
 
+  // Normalize the base color format
+  const normalizedBaseColor = baseColor.toUpperCase();
+  
   // Try to find exact match for base color first
   const exactMatch = findExactColorMatch(baseColor, colorData);
   
   // Convert base color to HSL
   const baseHSL = hexToHSL(baseColor);
   
+  // Create a base color object that will be preserved
+  const baseColorObj: Color = {
+    hex: normalizedBaseColor,
+    rgb: hslToRgb(baseHSL.h, baseHSL.s, baseHSL.l),
+    hsl: baseHSL,
+    name: exactMatch?.name
+  };
+  
   // Generate colors algorithmically
   const generatedColors = generateColorsByType(baseHSL, numColors, paletteType);
+  
+  // Replace the first color with our preserved base color
+  generatedColors[0] = baseColorObj;
   
   // Apply temperature adjustment if specified
   const temperatureAdjusted = temperature !== 'mixed' ? 
     adjustTemperature(generatedColors, temperature) : 
     generatedColors;
   
+  // Ensure the first color is still our original base color
+  temperatureAdjusted[0] = baseColorObj;
+  
   // If not using named colors, just return the generated colors with improved contrast
   if (!useNamedColors) {
-    return enforceMinContrast ? validateAndImproveContrast(temperatureAdjusted) : temperatureAdjusted;
+    const contrastImproved = enforceMinContrast ? validateAndImproveContrast(temperatureAdjusted) : temperatureAdjusted;
+    // Ensure base color is preserved
+    contrastImproved[0] = baseColorObj;
+    return contrastImproved;
   }
 
-  // If we have an exact match, ensure it's used as the first color
+  // If we have an exact match, ensure it's used for the base color
   if (exactMatch) {
     temperatureAdjusted[0] = exactMatch;
   }
@@ -756,11 +776,22 @@ export function generateColorPalette(
   // Replace any low-quality generated colors with better named alternatives
   const enhancedGenerated = enhanceGeneratedColors(temperatureAdjusted, colorData);
   
+  // Ensure base color is preserved
+  enhancedGenerated[0] = exactMatch || baseColorObj;
+  
   // Mix generated and named colors
   const mixedColors = mixColors(enhancedGenerated, namedColors);
   
+  // Ensure base color is preserved
+  mixedColors[0] = exactMatch || baseColorObj;
+  
   // As a final step, ensure we have good contrast between adjacent colors
-  return enforceMinContrast ? validateAndImproveContrast(mixedColors) : mixedColors;
+  const finalPalette = enforceMinContrast ? validateAndImproveContrast(mixedColors) : mixedColors;
+  
+  // One final check to ensure base color is preserved
+  finalPalette[0] = exactMatch || baseColorObj;
+  
+  return finalPalette;
 }
 
 // Find exact color matches
@@ -1093,11 +1124,17 @@ export function regenerateWithLockedColors(
     return generateColorPalette(currentPalette[0]?.hex || '#FF0000', options);
   }
 
-  // Find the first locked color to use as our base
-  const baseColorIndex = lockedIndices[0];
+  // Always ensure the base color (first color) is locked
+  let updatedLockedIndices = [...lockedIndices];
+  if (!updatedLockedIndices.includes(0)) {
+    updatedLockedIndices.push(0);
+  }
+
+  // Find the first locked color to use as our base (should be index 0, the original base color)
+  const baseColorIndex = 0;
   const baseColor = currentPalette[baseColorIndex].hex;
 
-  // Generate a new palette based on the first locked color
+  // Generate a new palette based on the base color
   const newPalette = generateColorPalette(baseColor, options);
 
   // Create the result by preserving locked colors and using new ones for unlocked positions
@@ -1105,7 +1142,7 @@ export function regenerateWithLockedColors(
   let newColorIndex = 0;
 
   for (let i = 0; i < result.length; i++) {
-    if (!lockedIndices.includes(i)) {
+    if (!updatedLockedIndices.includes(i)) {
       // This color is not locked, replace it with a new one
       if (newColorIndex < newPalette.length) {
         result[i] = newPalette[newColorIndex];
@@ -1114,6 +1151,19 @@ export function regenerateWithLockedColors(
     }
   }
 
-  // Apply contrast enhancement if needed
-  return options.enforceMinContrast ? validateAndImproveContrast(result) : result;
+  // Apply contrast enhancement if needed while preserving locked colors
+  if (options.enforceMinContrast) {
+    const improved = validateAndImproveContrast(result);
+    
+    // Restore locked colors
+    for (const index of updatedLockedIndices) {
+      if (index < result.length) {
+        improved[index] = result[index];
+      }
+    }
+    
+    return improved;
+  }
+  
+  return result;
 } 

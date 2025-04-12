@@ -1097,7 +1097,13 @@ export default function Home() {
       });
       
       // Convert the generated palette to string array of hex colors
-      const generatedColors = generatedPalette.map(color => color.hex);
+      let generatedColors = generatedPalette.map(color => color.hex);
+      
+      // Ensure the first color is always the original base color
+      if (generatedColors[0] !== baseColor.toUpperCase() && generatedColors[0] !== baseColor.toLowerCase()) {
+        // Replace the first color with the original base color if it's different
+        generatedColors = [baseColor, ...generatedColors.slice(1)];
+      }
       
       // Set new colors
       setBaseColors(generatedColors);

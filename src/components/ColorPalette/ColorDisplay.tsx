@@ -145,8 +145,8 @@ const SortableColorItem = ({
         style={{ backgroundColor: validatedColor }}
         onClick={() => onColorClick(validatedColor)}
       >
-        {/* Base color indicator */}
-        {isBaseColor && (
+        {/* Base color indicator - Only show on index 0 and if it's actually marked as base color */}
+        {isBaseColor && index === 0 && (
           <div className="absolute top-2 left-2 bg-yellow-400 text-xs text-black px-2 py-1 rounded-md shadow-sm font-medium">
             Base Color
           </div>
