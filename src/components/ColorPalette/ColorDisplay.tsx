@@ -554,7 +554,38 @@ export default function ColorDisplay({
     
     console.log(`Moving color from position ${oldIndex} to ${newIndex}`);
     
+    // Get the original colors before movement
+    const originalColors = [...colors];
+    
+    // Move the colors according to the drag and drop
     const newColors = arrayMove([...colors], oldIndex, newIndex);
+    
+    // For base color section (when not in random section), 
+    // ensure the base color stays at position 0
+    if (!randomSection && initialBaseColor.current) {
+      const baseColorValue = initialBaseColor.current;
+      
+      // If the base color was moved away from position 0, 
+      // or another color was moved to position 0
+      if (newColors[0] !== baseColorValue) {
+        // Find the base color's new position
+        const baseColorNewPosition = newColors.findIndex(color => color === baseColorValue);
+        
+        if (baseColorNewPosition !== -1) {
+          // Remove the base color from its new position
+          newColors.splice(baseColorNewPosition, 1);
+          // Insert it back at position 0
+          newColors.unshift(baseColorValue);
+          console.log('Restored base color to position 0');
+        } else {
+          // This shouldn't happen, but if the base color is somehow lost,
+          // put the original color[0] back in position 0
+          newColors[0] = originalColors[0];
+          console.log('Base color not found, restored original first color');
+        }
+      }
+    }
+    
     onColorsChange(newColors);
   };
 

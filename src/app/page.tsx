@@ -389,24 +389,29 @@ function RandomColorDisplay({ colors, onColorsChange }: { colors: string[], onCo
 // Custom ColorDisplay wrapper for Base Color section with index 0 protection 
 function BaseColorDisplay({ colors, onColorsChange }: { colors: string[], onColorsChange?: (colors: string[]) => void }) {
   // Store the original base color value to track it properly
-  const [originalBaseColor] = useState<string>(colors.length > 0 ? colors[0] : '#000000');
+  const [originalBaseColor, setOriginalBaseColor] = useState<string>(colors.length > 0 ? colors[0] : '#000000');
+  
+  // Update the originalBaseColor if it changes from the parent component
+  useEffect(() => {
+    if (colors.length > 0 && colors[0] !== originalBaseColor) {
+      // Only update if the parent explicitly changed the first color
+      setOriginalBaseColor(colors[0]);
+    }
+  }, [colors, originalBaseColor]);
   
   // Create a custom onChange handler that preserves the base color value, regardless of position
   const handleColorsChange = (newColors: string[]) => {
     if (!onColorsChange) return;
     
-    // Find the original base color in the new array
-    const baseColorIndex = newColors.findIndex(color => color === originalBaseColor);
-    
-    // If base color not found, ensure it's still in the array (edge case handling)
-    if (baseColorIndex === -1 && newColors.length > 0) {
-      // If base color disappeared for some reason, make sure it's still present
-      // Replace the first color with the original base color
+    // Always ensure the first color is the original base color
+    if (newColors.length > 0 && newColors[0] !== originalBaseColor) {
       newColors[0] = originalBaseColor;
     }
     
     onColorsChange(newColors);
   };
+  
+  console.log('BaseColorDisplay - originalBaseColor:', originalBaseColor, 'colors:', colors);
   
   return (
     <ColorDisplay 
