@@ -1073,4 +1073,47 @@ function analyzePalette(colors: Color[]): { score: number; details: Record<strin
       lightness: Math.round(lightnessScore * 10) / 10
     }
   };
+}
+
+export function regenerateWithLockedColors(
+  currentPalette: Color[],
+  lockedIndices: number[],
+  options: {
+    numColors?: number;
+    useNamedColors?: boolean;
+    namedColorRatio?: number;
+    paletteType?: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
+    colorData?: ColorEntry[];
+    enforceMinContrast?: boolean;
+    temperature?: 'warm' | 'cool' | 'neutral' | 'mixed';
+  } = {}
+): Color[] {
+  // If no colors are locked, just generate a new palette from the first color
+  if (lockedIndices.length === 0 || currentPalette.length === 0) {
+    return generateColorPalette(currentPalette[0]?.hex || '#FF0000', options);
+  }
+
+  // Find the first locked color to use as our base
+  const baseColorIndex = lockedIndices[0];
+  const baseColor = currentPalette[baseColorIndex].hex;
+
+  // Generate a new palette based on the first locked color
+  const newPalette = generateColorPalette(baseColor, options);
+
+  // Create the result by preserving locked colors and using new ones for unlocked positions
+  const result = [...currentPalette];
+  let newColorIndex = 0;
+
+  for (let i = 0; i < result.length; i++) {
+    if (!lockedIndices.includes(i)) {
+      // This color is not locked, replace it with a new one
+      if (newColorIndex < newPalette.length) {
+        result[i] = newPalette[newColorIndex];
+        newColorIndex++;
+      }
+    }
+  }
+
+  // Apply contrast enhancement if needed
+  return options.enforceMinContrast ? validateAndImproveContrast(result) : result;
 } 

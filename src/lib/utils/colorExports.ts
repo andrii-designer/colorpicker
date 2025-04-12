@@ -5,8 +5,9 @@ import {
   analyzeColorPalette as analyzePalette,
   hslToHex
 } from './colorAnalysisNew';
+import { generateColorPalette } from './generateColors';
 
 // Re-export with clean naming
 export const generateHarmoniousPalette = genPalette;
 export const analyzeColorPalette = analyzePalette;
-export { hslToHex };
+export { hslToHex, generateColorPalette };
