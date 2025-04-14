@@ -559,7 +559,6 @@ export default function Home() {
     }
   }, [randomHistory.position, randomHistory.history.length]);
 
-  // Add similar effects for other history types
   useEffect(() => {
     setImageUndoDisabled(imageHistory.position <= 0);
     setImageRedoDisabled(imageHistory.position >= imageHistory.history.length - 1);
@@ -571,12 +570,6 @@ export default function Home() {
   }, [baseHistory.position, baseHistory.history.length]);
 
   // Generate palette when baseColor or paletteType changes
-  useEffect(() => {
-    if (baseColor) {
-      handleGenerateFromBase();
-    }
-  }, [baseColor, paletteType, handleGenerateFromBase]);
-
   const handleImageSelect = async (imageData: string) => {
     setSelectedImage(imageData);
     
@@ -1190,6 +1183,13 @@ export default function Home() {
   
   const handleRandomColorsGenerate = useCallback(() => {
     try {
+  // Generate palette when baseColor or paletteType changes
+  useEffect(() => {
+    if (baseColor) {
+      handleGenerateFromBase();
+    }
+  }, [baseColor, paletteType, handleGenerateFromBase]);
+
       // Track if we're generating colors
       setIsGenerating(true);
       
