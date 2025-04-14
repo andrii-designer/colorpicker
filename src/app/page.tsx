@@ -575,7 +575,7 @@ export default function Home() {
     if (baseColor) {
       handleGenerateFromBase();
     }
-  }, [baseColor, paletteType]);
+  }, [baseColor, paletteType, handleGenerateFromBase]);
 
   const handleImageSelect = async (imageData: string) => {
     setSelectedImage(imageData);
