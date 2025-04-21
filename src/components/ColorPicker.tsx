@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HexColorPicker } from 'react-colorful';
 import tinycolor from 'tinycolor2';
+import { FiDroplet } from 'react-icons/fi';
 
 export interface ColorPickerProps {
   color: string;
@@ -15,6 +16,8 @@ export interface ColorPickerProps {
   modalMode?: boolean;
   className?: string;
 }
+
+type ColorFormat = 'hex' | 'rgb' | 'hsl';
 
 export default function ColorPicker({
   color,
@@ -29,6 +32,15 @@ export default function ColorPicker({
   const modalRef = useRef<HTMLDivElement>(null);
   const [hexValue, setHexValue] = useState(tinycolor(color).toHexString().toUpperCase());
   const [initialColor] = useState(hexValue);
+  const [colorFormat, setColorFormat] = useState<ColorFormat>('hex');
+  const [isEyedropperSupported, setIsEyedropperSupported] = useState(false);
+  
+  // Check if EyeDropper API is supported
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsEyedropperSupported('EyeDropper' in window);
+    }
+  }, []);
   
   useEffect(() => {
     setHexValue(tinycolor(color).toHexString().toUpperCase());
@@ -67,6 +79,56 @@ export default function ColorPicker({
   const handleReset = () => {
     setHexValue(initialColor);
     onChange(initialColor);
+  };
+  
+  const handleEyedropper = async () => {
+    if (!('EyeDropper' in window)) return;
+    
+    try {
+      // @ts-ignore - EyeDropper API might not be in TypeScript defs yet
+      const eyeDropper = new window.EyeDropper();
+      const result = await eyeDropper.open();
+      
+      if (result.sRGBHex) {
+        const hexColor = result.sRGBHex.toUpperCase();
+        setHexValue(hexColor);
+        onChange(hexColor);
+      }
+    } catch (error) {
+      console.error('Error using eyedropper:', error);
+    }
+  };
+  
+  const handleFormatChange = (format: ColorFormat) => {
+    setColorFormat(format);
+  };
+  
+  // Format color based on selected format
+  const getFormattedColorValue = () => {
+    const tc = tinycolor(color);
+    
+    switch (colorFormat) {
+      case 'rgb': {
+        const rgb = tc.toRgb();
+        return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      }
+      case 'hsl': {
+        const hsl = tc.toHsl();
+        return `hsl(${Math.round(hsl.h)}°, ${Math.round(hsl.s * 100)}%, ${Math.round(hsl.l * 100)}%)`;
+      }
+      default:
+        return hexValue;
+    }
+  };
+  
+  // Handle RGB/HSL input changes
+  const handleColorStringChange = (value: string) => {
+    const tc = tinycolor(value);
+    if (tc.isValid()) {
+      const hexColor = tc.toHexString().toUpperCase();
+      setHexValue(hexColor);
+      onChange(hexColor);
+    }
   };
   
   // Click outside handler for modal mode
@@ -116,42 +178,83 @@ export default function ColorPicker({
         )}
         
         {showInput && (
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex-1 mr-3">
-              <input 
-                type="text" 
-                className="w-full text-center p-2 border rounded font-mono text-lg"
-                value={hexValue}
-                onChange={handleHexChange}
-                onBlur={handleHexBlur}
-                maxLength={7}
-                aria-label="Hex color value"
-              />
+          <>
+            {/* Format selector */}
+            <div className="flex mb-2 border rounded overflow-hidden">
+              <button 
+                className={`flex-1 text-xs py-1 ${colorFormat === 'hex' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                onClick={() => handleFormatChange('hex')}
+              >
+                HEX
+              </button>
+              <button 
+                className={`flex-1 text-xs py-1 ${colorFormat === 'rgb' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                onClick={() => handleFormatChange('rgb')}
+              >
+                RGB
+              </button>
+              <button 
+                className={`flex-1 text-xs py-1 ${colorFormat === 'hsl' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                onClick={() => handleFormatChange('hsl')}
+              >
+                HSL
+              </button>
             </div>
             
-            <div className="flex space-x-2">
-              {showReset && (
-                <button
-                  className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-gray-700"
-                  onClick={handleReset}
-                  title="Reset to initial color"
-                  aria-label="Reset color"
-                >
-                  Reset
-                </button>
-              )}
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex-1 mr-3 relative">
+                <input 
+                  type="text" 
+                  className="w-full text-center p-2 border rounded font-mono text-lg"
+                  value={getFormattedColorValue()}
+                  onChange={(e) => {
+                    if (colorFormat === 'hex') {
+                      handleHexChange(e);
+                    } else {
+                      handleColorStringChange(e.target.value);
+                    }
+                  }}
+                  onBlur={colorFormat === 'hex' ? handleHexBlur : undefined}
+                  maxLength={colorFormat === 'hex' ? 7 : 30}
+                  aria-label={`${colorFormat.toUpperCase()} color value`}
+                />
+                
+                {isEyedropperSupported && (
+                  <button 
+                    onClick={handleEyedropper}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    title="Pick color from screen"
+                    aria-label="Use eyedropper tool"
+                  >
+                    <FiDroplet className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
               
-              {onClose && (
-                <button
-                  className="text-sm bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded-md text-white"
-                  onClick={onClose}
-                  aria-label="Close color picker"
-                >
-                  Done
-                </button>
-              )}
+              <div className="flex space-x-2">
+                {showReset && (
+                  <button
+                    className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-gray-700"
+                    onClick={handleReset}
+                    title="Reset to initial color"
+                    aria-label="Reset color"
+                  >
+                    Reset
+                  </button>
+                )}
+                
+                {onClose && (
+                  <button
+                    className="text-sm bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded-md text-white"
+                    onClick={onClose}
+                    aria-label="Close color picker"
+                  >
+                    Done
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

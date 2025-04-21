@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove } from 'react-icons/fi';
@@ -20,38 +20,94 @@ function useHistoryState<T>(initialState: T) {
   const [history, setHistory] = useState<T[]>([]);
   const [position, setPosition] = useState<number>(-1);
   
-  // Computed current value
-  const current = position >= 0 ? history[position] : initialState;
+  // Ensure we have a valid initial state for the UI
+  useEffect(() => {
+    if (history.length === 0) {
+      setHistory([initialState]);
+      setPosition(0);
+    }
+  }, [initialState]);
+  
+  // Computed current value - carefully handle edge cases
+  const current = useMemo(() => {
+    if (position >= 0 && position < history.length) {
+      return history[position];
+    }
+    if (history.length > 0) {
+      return history[0];
+    }
+    return initialState;
+  }, [history, position, initialState]);
   
   // Computed states for button disabling
-  const undoDisabled = position <= 0;
+  const undoDisabled = position <= 0 || history.length <= 1;
   const redoDisabled = position >= history.length - 1;
   
   // Add a new state to history
-  const addToHistory = (state: T) => {
+  const addToHistory = useCallback((newState: T) => {
+    // If history is empty, initialize it
+    if (history.length === 0) {
+      setHistory([newState]);
+      setPosition(0);
+      return;
+    }
+    
+    // Skip if the new state is identical to the current state
+    if (JSON.stringify(newState) === JSON.stringify(current)) {
+      return;
+    }
+    
     // Create new history by truncating anything after current position
-    // and adding the new state
-    const newHistory = position >= 0 
-      ? [...history.slice(0, position + 1), state]
-      : [state];
+    const newHistory = [
+      ...history.slice(0, position + 1),
+      newState
+    ];
     
     setHistory(newHistory);
     setPosition(newHistory.length - 1);
-  };
+    
+    // Log history for debugging
+    console.log("History updated", { 
+      newHistoryLength: newHistory.length, 
+      newPosition: newHistory.length - 1,
+      currentState: JSON.stringify(newState).substring(0, 50) + "..."
+    });
+  }, [history, position, current]);
   
-  // Undo operation
-  const undo = () => {
+  // Undo operation with direct state access
+  const undo = useCallback(() => {
     if (position > 0) {
-      setPosition(position - 1);
+      const newPosition = position - 1;
+      setPosition(newPosition);
+      // Log undo operation
+      console.log("Undo to position", newPosition, "of", history.length - 1);
+      // Return the state at the new position for immediate access
+      return history[newPosition];
     }
-  };
+    return null;
+  }, [history, position]);
   
-  // Redo operation
-  const redo = () => {
+  // Redo operation with direct state access
+  const redo = useCallback(() => {
     if (position < history.length - 1) {
-      setPosition(position + 1);
+      const newPosition = position + 1;
+      setPosition(newPosition);
+      // Log redo operation
+      console.log("Redo to position", newPosition, "of", history.length - 1);
+      // Return the state at the new position for immediate access
+      return history[newPosition];
     }
-  };
+    return null;
+  }, [history, position]);
+  
+  // Get all history states for debugging
+  const getFullHistory = useCallback(() => {
+    return {
+      history,
+      position,
+      current
+    };
+  }, [history, position, current]);
   
   return {
     value: current,
@@ -61,7 +117,8 @@ function useHistoryState<T>(initialState: T) {
     undoDisabled,
     redoDisabled,
     history,
-    position
+    position,
+    getFullHistory
   };
 }
 
@@ -102,7 +159,7 @@ const SortableColorItem = ({
   color: string;
   index: number;
   onColorClick: (color: string) => void;
-  onEditClick: (color: string, index: number) => void;
+  onEditClick: (color: string, index: number, event: React.MouseEvent) => void;
 }) => {
   const {
     attributes,
@@ -143,10 +200,7 @@ const SortableColorItem = ({
       <div className="flex items-center space-x-2">
         {/* Edit button */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditClick(color, index);
-          }}
+          onClick={(e) => onEditClick(color, index, e)}
           className={`p-1 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Edit color"
         >
@@ -173,14 +227,17 @@ const SortableColorItem = ({
 const ColorPickerModal = ({ 
   color, 
   onClose, 
-  onChange 
+  onChange,
+  anchorPosition
 }: { 
   color: string;
   onClose: () => void;
   onChange: (color: string) => void;
+  anchorPosition?: { x: number, y: number };
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [hexValue, setHexValue] = useState(color.toUpperCase());
+  const initialColorRef = useRef(color);
   
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -197,48 +254,76 @@ const ColorPickerModal = ({
   
   const handleColorChange = (newColor: string) => {
     setHexValue(newColor.toUpperCase());
+    // Update the color in real-time, but don't add to history
     onChange(newColor);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setHexValue(e.target.value);
+    // Update in real-time if it's a valid hex color
     if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
       onChange(e.target.value);
     }
   };
   
+  const handleDone = () => {
+    // Only add to history when Done is clicked
+    if (hexValue !== initialColorRef.current) {
+      // The onChange here will trigger handleColorChange in the parent
+      onChange(hexValue);
+    }
+    onClose();
+  };
+
+  const handleReset = () => {
+    // Reset to initial color
+    setHexValue(initialColorRef.current);
+    onChange(initialColorRef.current);
+  };
+  
+  const getModalStyle = () => {
+    if (anchorPosition) {
+      return {
+        position: 'absolute',
+        left: `${anchorPosition.x}px`,
+        top: `${anchorPosition.y}px`,
+        transform: 'translate(-50%, 10px)',
+        zIndex: 100
+      } as React.CSSProperties;
+    }
+    return {};
+  };
+  
   return typeof document !== 'undefined' ? createPortal(
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div 
-        ref={modalRef}
-        className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full"
-      >
-        <h3 className="text-lg font-medium mb-4">Edit Color</h3>
-        
-        <div className="mb-4">
-          <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
-        </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Hex Color
-          </label>
-          <input
-            type="text"
-            value={hexValue}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-        
-        <div className="flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            Done
-          </button>
-        </div>
+    <div 
+      ref={modalRef}
+      className="bg-white rounded-lg shadow-xl p-4 w-[300px]"
+      style={getModalStyle()}
+    >
+      <div className="mb-4">
+        <h3 className="text-base font-medium mb-2">Hex Color</h3>
+        <input
+          type="text"
+          value={hexValue}
+          onChange={handleInputChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mb-2"
+        />
+        <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
+      </div>
+      
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={handleReset}
+          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Reset
+        </button>
+        <button
+          onClick={handleDone}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Done
+        </button>
       </div>
     </div>,
     document.body
@@ -261,6 +346,9 @@ export default function Home() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [editingColor, setEditingColor] = useState('');
   const [editingColorIndex, setEditingColorIndex] = useState(-1);
+  const [pickerPosition, setPickerPosition] = useState<{ x: number, y: number } | undefined>(undefined);
+  // Track the pre-editing colors for history
+  const preEditColorsRef = useRef<string[]>([]);
   
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -330,24 +418,23 @@ export default function Home() {
       // Skip if nothing changed
       if (arraysEqual(randomColors, newColors)) return;
       
-      // Create new state with the current values before updating
-      const currentState = {
-        colors: [...randomColors],
-        advice: randomColorAdvice,
-        score: randomScore
+      // Create new state with the new colors
+      const newState = {
+        colors: [...newColors],
+        advice: '',  // Clear advice when colors change
+        score: 0     // Clear score when colors change
       };
       
-      // Add current state to history
-      randomHistory.addToHistory(currentState);
+      // Add new state to history
+      randomHistory.addToHistory(newState);
       
-      // Update with new colors
+      // Update UI with new colors
       setRandomColors(newColors);
-      
-      // Analyze the new colors but don't update the advice/score yet
-      const analysis = analyzeColorPalette(newColors);
-      // Store the analysis results but don't display them yet
       setRandomColorAdvice('');
       setRandomScore(0);
+      
+      // Analyze the new colors but don't show advice/score yet
+      const analysis = analyzeColorPalette(newColors);
       // Save the analysis for later use when Ask button is clicked
       (window as any).__latestAnalysis = {
         advice: analysis.advice,
@@ -356,30 +443,32 @@ export default function Home() {
     } catch (error) {
       console.error("Error changing random colors:", error);
     }
-  }, [randomColors, randomColorAdvice, randomScore, randomHistory]);
+  }, [randomColors, randomHistory]);
   
   // Function to generate random palette
   function handleGenerateRandom() {
     try {
-      // Save current state if we have colors
-      if (randomColors.length > 0) {
-        const currentState = {
-          colors: [...randomColors],
-          advice: randomColorAdvice,
-          score: randomScore
-        };
-        randomHistory.addToHistory(currentState);
-      }
-      
       // Generate new random colors
       const newColors = generateHarmoniousPalette();
-      setRandomColors(newColors);
       
-      // Analyze the new colors but don't update the advice right away
+      // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
-      // Store analysis but don't display yet
+      
+      // Create the state to save
+      const newState = {
+        colors: newColors,
+        advice: '',  // We don't show advice immediately
+        score: 0     // We don't show score immediately
+      };
+      
+      // Save current state to history
+      randomHistory.addToHistory(newState);
+      
+      // Update UI
+      setRandomColors(newColors);
       setRandomColorAdvice('');
       setRandomScore(0);
+      
       // Save the analysis for later use when Ask button is clicked
       (window as any).__latestAnalysis = {
         advice: analysis.advice,
@@ -412,9 +501,21 @@ export default function Home() {
   };
   
   // Handle edit button click
-  const handleEditClick = (color: string, index: number) => {
+  const handleEditClick = (color: string, index: number, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const buttonElement = event.currentTarget as HTMLElement;
+    const rect = buttonElement.getBoundingClientRect();
+    
+    // Store the pre-edit colors for history
+    preEditColorsRef.current = JSON.parse(JSON.stringify(randomColors));
+    console.log("Storing pre-edit colors:", preEditColorsRef.current);
+    
     setEditingColor(color);
     setEditingColorIndex(index);
+    setPickerPosition({
+      x: rect.left + (rect.width / 2),
+      y: rect.bottom
+    });
     setShowColorPicker(true);
   };
   
@@ -423,7 +524,36 @@ export default function Home() {
     if (editingColorIndex >= 0) {
       const newColors = [...randomColors];
       newColors[editingColorIndex] = newColor;
-      handleRandomColorsChange(newColors);
+      
+      // Just update the UI without adding to history during active editing
+      setRandomColors(newColors);
+    }
+  };
+  
+  // Handle closing the color picker
+  const handleCloseColorPicker = () => {
+    setShowColorPicker(false);
+    
+    // When the color picker is closed, add the final color to history
+    if (editingColorIndex >= 0 && preEditColorsRef.current.length > 0) {
+      // Compare arrays to see if there was a change
+      const hasChanged = !arraysEqual(preEditColorsRef.current, randomColors);
+      console.log("Has palette changed?", hasChanged);
+      
+      if (hasChanged) {
+        // Create new state with the current values before updating
+        const newState = {
+          colors: [...randomColors],
+          advice: randomColorAdvice,
+          score: randomScore
+        };
+        
+        // Add to history
+        randomHistory.addToHistory(newState);
+      }
+      
+      // Reset the pre-edit colors regardless
+      preEditColorsRef.current = [];
     }
   };
   
@@ -514,16 +644,34 @@ export default function Home() {
             <div className="mt-6 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={randomHistory.undo}
+                  onClick={() => {
+                    const prevState = randomHistory.undo();
+                    if (prevState) {
+                      setRandomColors(prevState.colors);
+                      setRandomColorAdvice(prevState.advice);
+                      setRandomScore(prevState.score);
+                    }
+                  }}
                   disabled={randomHistory.undoDisabled}
                   className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${randomHistory.undoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  aria-label="Undo"
+                  title="Undo to previous color palette"
                 >
                   Undo
                 </button>
                 <button
-                  onClick={randomHistory.redo}
+                  onClick={() => {
+                    const nextState = randomHistory.redo();
+                    if (nextState) {
+                      setRandomColors(nextState.colors);
+                      setRandomColorAdvice(nextState.advice);
+                      setRandomScore(nextState.score);
+                    }
+                  }}
                   disabled={randomHistory.redoDisabled}
                   className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${randomHistory.redoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  aria-label="Redo"
+                  title="Redo to next color palette"
                 >
                   Redo
                 </button>
@@ -588,13 +736,13 @@ export default function Home() {
                               <div className="flex items-center">
                                 <span className="text-xs text-gray-500">Score: </span>
                                 <span className={`text-xs font-bold ml-1 ${getScoreColor(message.score)}`}>
-                                  {message.score}/10
+                                  {message.score}
                                 </span>
                               </div>
                             )}
                           </div>
                         </div>
-                        <p className="text-gray-700 text-sm">{message.text}</p>
+                        <p className="text-sm text-gray-700">{message.text}</p>
                       </div>
                     ))}
                     <div ref={chatEndRef} />
@@ -602,14 +750,13 @@ export default function Home() {
                 )}
               </div>
               
-              {/* Chat Input - future extension, could add user questions */}
-              <div className="border-t border-gray-200 p-4 bg-gray-50">
+              {/* Chat Input */}
+              <div className="p-4 border-t border-gray-200">
                 <button
                   onClick={handleAskForAdvice}
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-700 transition-colors"
+                  className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <span>Ask ColorWiz</span>
-                  <FiArrowRight className="ml-2 h-4 w-4" />
+                  Ask for Advice
                 </button>
               </div>
             </div>
@@ -621,8 +768,9 @@ export default function Home() {
       {showColorPicker && (
         <ColorPickerModal
           color={editingColor}
-          onClose={() => setShowColorPicker(false)}
+          onClose={handleCloseColorPicker}
           onChange={handleColorChange}
+          anchorPosition={pickerPosition}
         />
       )}
     </div>
