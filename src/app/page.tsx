@@ -49,11 +49,13 @@ function useHistoryState<T>(initialState: T) {
     if (history.length === 0) {
       setHistory([newState]);
       setPosition(0);
+      console.log("Initialized history with first state");
       return;
     }
     
     // Skip if the new state is identical to the current state
     if (JSON.stringify(newState) === JSON.stringify(current)) {
+      console.log("Skipping identical state");
       return;
     }
     
@@ -80,10 +82,13 @@ function useHistoryState<T>(initialState: T) {
       const newPosition = position - 1;
       setPosition(newPosition);
       // Log undo operation
-      console.log("Undo to position", newPosition, "of", history.length - 1);
+      console.log("Undo to position", newPosition, "of", history.length - 1, 
+                  "history length:", history.length);
+      
       // Return the state at the new position for immediate access
       return history[newPosition];
     }
+    console.log("Cannot undo, at earliest position", position, "history length:", history.length);
     return null;
   }, [history, position]);
   
@@ -93,10 +98,13 @@ function useHistoryState<T>(initialState: T) {
       const newPosition = position + 1;
       setPosition(newPosition);
       // Log redo operation
-      console.log("Redo to position", newPosition, "of", history.length - 1);
+      console.log("Redo to position", newPosition, "of", history.length - 1,
+                  "history length:", history.length);
+      
       // Return the state at the new position for immediate access
       return history[newPosition];
     }
+    console.log("Cannot redo, at latest position", position, "history length:", history.length);
     return null;
   }, [history, position]);
   
@@ -350,22 +358,40 @@ export default function Home() {
   // Track the pre-editing colors for history
   const preEditColorsRef = useRef<string[]>([]);
   
+  // Maintain a boolean to track if initialization has happened
+  const hasInitializedRef = useRef(false);
+  
   // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   
-  // History for random colors
-  const randomHistory = useHistoryState<{
-    colors: string[],
-    advice: string,
-    score: number
-  }>({
-    colors: [],
-    advice: '',
-    score: 0
-  });
+  // Create a directly managed history
+  const [paletteHistory, setPaletteHistory] = useState<string[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // Computed undo/redo status
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < paletteHistory.length - 1;
+  
+  // Function to add to history properly
+  const addPaletteToHistory = useCallback((colors: string[]) => {
+    // Don't add empty colors
+    if (!colors || colors.length === 0) return;
+    
+    // Create a new history by truncating anything after the current position
+    const newHistory = paletteHistory.slice(0, historyIndex + 1);
+    
+    // Add the new colors to history
+    newHistory.push([...colors]);
+    
+    // Update history state
+    setPaletteHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    
+    console.log(`Added to history - now at position ${newHistory.length - 1} of ${newHistory.length - 1}`);
+  }, [paletteHistory, historyIndex]);
   
   // Initialize random IDs for drag and drop
   useEffect(() => {
@@ -374,7 +400,29 @@ export default function Home() {
   
   // Generate random colors on initial load
   useEffect(() => {
-    handleGenerateRandom();
+    if (hasInitializedRef.current) return;
+    
+    // Generate initial palette
+    const initialColors = generateHarmoniousPalette();
+    
+    // Set the colors
+    setRandomColors(initialColors);
+    
+    // Initialize history with the initial palette
+    setPaletteHistory([initialColors]);
+    setHistoryIndex(0);
+    
+    // Set up the initial analysis
+    const analysis = analyzeColorPalette(initialColors);
+    (window as any).__latestAnalysis = {
+      advice: analysis.advice,
+      score: analysis.score
+    };
+    
+    // Mark initialization as complete
+    hasInitializedRef.current = true;
+    
+    console.log("Initial palette generated and history initialized");
   }, []);
   
   // Scroll to bottom of chat when new messages are added
@@ -384,25 +432,34 @@ export default function Home() {
     }
   }, [adviceMessages]);
   
-  // Add a new advice message whenever the randomColorAdvice changes
-  useEffect(() => {
-    if (randomColorAdvice) {
-      const newMessage: AdviceMessage = {
-        id: Date.now().toString(),
-        text: randomColorAdvice,
-        score: randomScore,
-        icon: <FiMessageSquare className="h-5 w-5" />
-      };
-      
-      setAdviceMessages(prev => [...prev, newMessage]);
-    }
-  }, [randomColorAdvice, randomScore]);
-  
   // Handle key press for generating new palette
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        handleGenerateRandom();
+      // Only handle Enter key presses that aren't inside input fields
+      if (event.key === 'Enter' && 
+          !['INPUT', 'TEXTAREA'].includes((event.target as HTMLElement)?.tagName)) {
+        event.preventDefault(); // Prevent default form submission
+        
+        // Generate new palette directly here
+        const newColors = generateHarmoniousPalette();
+        
+        // Add to history
+        const newHistory = paletteHistory.slice(0, historyIndex + 1);
+        newHistory.push(newColors);
+        setPaletteHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+        
+        // Update UI with new colors
+        setRandomColors(newColors);
+        
+        // Update analysis for later use
+        const analysis = analyzeColorPalette(newColors);
+        (window as any).__latestAnalysis = {
+          advice: analysis.advice,
+          score: analysis.score
+        };
+        
+        console.log(`Enter key: Generated palette, now at history position ${newHistory.length - 1}`);
       }
     };
     
@@ -410,42 +467,9 @@ export default function Home() {
     return () => {
       window.removeEventListener('keypress', handleKeyPress);
     };
-  }, []);
+  }, [paletteHistory, historyIndex]);
   
-  // Handle random colors change
-  const handleRandomColorsChange = useCallback((newColors: string[]) => {
-    try {
-      // Skip if nothing changed
-      if (arraysEqual(randomColors, newColors)) return;
-      
-      // Create new state with the new colors
-      const newState = {
-        colors: [...newColors],
-        advice: '',  // Clear advice when colors change
-        score: 0     // Clear score when colors change
-      };
-      
-      // Add new state to history
-      randomHistory.addToHistory(newState);
-      
-      // Update UI with new colors
-      setRandomColors(newColors);
-      setRandomColorAdvice('');
-      setRandomScore(0);
-      
-      // Analyze the new colors but don't show advice/score yet
-      const analysis = analyzeColorPalette(newColors);
-      // Save the analysis for later use when Ask button is clicked
-      (window as any).__latestAnalysis = {
-        advice: analysis.advice,
-        score: analysis.score
-      };
-    } catch (error) {
-      console.error("Error changing random colors:", error);
-    }
-  }, [randomColors, randomHistory]);
-  
-  // Function to generate random palette
+  // Function to generate random palette (button click)
   function handleGenerateRandom() {
     try {
       // Generate new random colors
@@ -454,43 +478,68 @@ export default function Home() {
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
       
-      // Create the state to save
-      const newState = {
-        colors: newColors,
-        advice: '',  // We don't show advice immediately
-        score: 0     // We don't show score immediately
-      };
+      // Add to history
+      const newHistory = paletteHistory.slice(0, historyIndex + 1);
+      newHistory.push(newColors);
+      setPaletteHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
       
-      // Save current state to history
-      randomHistory.addToHistory(newState);
-      
-      // Update UI
+      // Update UI with new colors
       setRandomColors(newColors);
-      setRandomColorAdvice('');
-      setRandomScore(0);
       
-      // Save the analysis for later use when Ask button is clicked
+      // Save the analysis for later use
       (window as any).__latestAnalysis = {
         advice: analysis.advice,
         score: analysis.score
       };
+      
+      console.log(`Button: Generated palette, now at history position ${newHistory.length - 1}`);
     } catch (error) {
       console.error("Error generating random palette:", error);
     }
   }
   
-  // Handle request for advice (when Ask button is clicked)
+  // Add a new advice message only when explicitly requested through the Ask for Advice button
+  // instead of whenever randomColorAdvice changes
   const handleAskForAdvice = () => {
     if ((window as any).__latestAnalysis) {
-      setRandomColorAdvice((window as any).__latestAnalysis.advice);
-      setRandomScore((window as any).__latestAnalysis.score);
+      // Get the advice and score
+      const advice = (window as any).__latestAnalysis.advice;
+      const score = (window as any).__latestAnalysis.score;
+      
+      // Update state
+      setRandomColorAdvice(advice);
+      setRandomScore(score);
+      
+      // Create and add the new message
+      const newMessage: AdviceMessage = {
+        id: Date.now().toString(),
+        text: advice,
+        score: score,
+        icon: <FiMessageSquare className="h-5 w-5" />
+      };
+      
+      setAdviceMessages(prev => [...prev, newMessage]);
+      
       // Clear stored analysis after using it
       (window as any).__latestAnalysis = null;
     } else {
       // If no stored analysis, generate one now
       const analysis = analyzeColorPalette(randomColors);
+      
+      // Update state
       setRandomColorAdvice(analysis.advice);
       setRandomScore(analysis.score);
+      
+      // Create and add the new message
+      const newMessage: AdviceMessage = {
+        id: Date.now().toString(),
+        text: analysis.advice,
+        score: analysis.score,
+        icon: <FiMessageSquare className="h-5 w-5" />
+      };
+      
+      setAdviceMessages(prev => [...prev, newMessage]);
     }
   };
   
@@ -541,15 +590,20 @@ export default function Home() {
       console.log("Has palette changed?", hasChanged);
       
       if (hasChanged) {
-        // Create new state with the current values before updating
-        const newState = {
-          colors: [...randomColors],
-          advice: randomColorAdvice,
-          score: randomScore
+        // Add to history
+        const newHistory = paletteHistory.slice(0, historyIndex + 1);
+        newHistory.push([...randomColors]);
+        setPaletteHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+        
+        // Update analysis
+        const analysis = analyzeColorPalette(randomColors);
+        (window as any).__latestAnalysis = {
+          advice: analysis.advice,
+          score: analysis.score
         };
         
-        // Add to history
-        randomHistory.addToHistory(newState);
+        console.log(`Updated color, now at history position ${newHistory.length - 1}`);
       }
       
       // Reset the pre-edit colors regardless
@@ -566,8 +620,26 @@ export default function Home() {
       const overIndex = colorIds.indexOf(over.id as string);
       
       if (activeIndex !== -1 && overIndex !== -1) {
+        // Create the new color array with the reordered colors
         const newColors = arrayMove(randomColors, activeIndex, overIndex);
-        handleRandomColorsChange(newColors);
+        
+        // Update the UI
+        setRandomColors(newColors);
+        
+        // Add to history
+        const newHistory = paletteHistory.slice(0, historyIndex + 1);
+        newHistory.push([...newColors]);
+        setPaletteHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+        
+        // Update analysis
+        const analysis = analyzeColorPalette(newColors);
+        (window as any).__latestAnalysis = {
+          advice: analysis.advice,
+          score: analysis.score
+        };
+        
+        console.log(`Reordered colors, now at history position ${newHistory.length - 1}`);
       }
     }
   };
@@ -645,15 +717,27 @@ export default function Home() {
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => {
-                    const prevState = randomHistory.undo();
-                    if (prevState) {
-                      setRandomColors(prevState.colors);
-                      setRandomColorAdvice(prevState.advice);
-                      setRandomScore(prevState.score);
+                    if (canUndo) {
+                      const newPosition = historyIndex - 1;
+                      console.log(`Undo: moving from position ${historyIndex} to ${newPosition}`);
+                      setHistoryIndex(newPosition);
+                      
+                      // Apply the previous palette
+                      const prevColors = paletteHistory[newPosition];
+                      setRandomColors(prevColors);
+                      
+                      // Update analysis for the restored palette
+                      const analysis = analyzeColorPalette(prevColors);
+                      (window as any).__latestAnalysis = {
+                        advice: analysis.advice,
+                        score: analysis.score
+                      };
+                      
+                      console.log("Applied undo to restore palette");
                     }
                   }}
-                  disabled={randomHistory.undoDisabled}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${randomHistory.undoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={!canUndo}
+                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${!canUndo ? 'opacity-50 cursor-not-allowed' : ''}`}
                   aria-label="Undo"
                   title="Undo to previous color palette"
                 >
@@ -661,15 +745,27 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => {
-                    const nextState = randomHistory.redo();
-                    if (nextState) {
-                      setRandomColors(nextState.colors);
-                      setRandomColorAdvice(nextState.advice);
-                      setRandomScore(nextState.score);
+                    if (canRedo) {
+                      const newPosition = historyIndex + 1;
+                      console.log(`Redo: moving from position ${historyIndex} to ${newPosition}`);
+                      setHistoryIndex(newPosition);
+                      
+                      // Apply the next palette
+                      const nextColors = paletteHistory[newPosition];
+                      setRandomColors(nextColors);
+                      
+                      // Update analysis for the restored palette
+                      const analysis = analyzeColorPalette(nextColors);
+                      (window as any).__latestAnalysis = {
+                        advice: analysis.advice,
+                        score: analysis.score
+                      };
+                      
+                      console.log("Applied redo to restore palette");
                     }
                   }}
-                  disabled={randomHistory.redoDisabled}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${randomHistory.redoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={!canRedo}
+                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${!canRedo ? 'opacity-50 cursor-not-allowed' : ''}`}
                   aria-label="Redo"
                   title="Redo to next color palette"
                 >
