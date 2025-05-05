@@ -199,37 +199,51 @@ const SortableColorItem = ({
         ...style,
         backgroundColor: color
       }}
-      className="h-24 flex items-end justify-between p-4 cursor-pointer transition-transform hover:scale-[1.01] relative"
+      className="h-32 flex items-end justify-between p-5 cursor-pointer relative rounded-xl"
       onClick={() => onColorClick(color)}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.1 }}
       {...attributes}
     >
-      <span className={`font-mono text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      <span className={`font-mono text-sm ${isDark ? 'text-white' : 'text-black'}`} style={{
+        fontFamily: 'Inter, monospace',
+        fontSize: '14px',
+        fontWeight: 500
+      }}>
         {color.toUpperCase()}
       </span>
       
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-3">
         {/* Edit button */}
         <button
           onClick={(e) => onEditClick(color, index, e)}
-          className={`p-1 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
+          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Edit color"
         >
-          <FiEdit2 className={`h-4 w-4 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+          <FiEdit2 className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
         </button>
         
-        {/* Copy button is already in the UI */}
-        <FiCopy className={`h-4 w-4 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+        {/* Copy button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(color);
+            toast.success(`Copied ${color.toUpperCase()} to clipboard`);
+          }}
+          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
+          title="Copy hex code"
+        >
+          <FiCopy className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
+        </button>
         
         {/* Drag handle */}
         <button
           {...listeners}
-          className={`p-1 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors cursor-grab active:cursor-grabbing`}
+          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors cursor-grab active:cursor-grabbing`}
           title="Drag to reorder"
         >
-          <FiMove className={`h-4 w-4 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+          <FiMove className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
         </button>
       </div>
     </motion.div>
@@ -657,14 +671,12 @@ export default function Home() {
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-[1440px] mx-auto px-4">
         {/* Header */}
-        <header className="py-4 flex items-center justify-between">
-          <div className="flex-1">
-            {/* Logo */}
+        <header className="py-6 flex items-center justify-between">
+          <div className="flex items-center">
             <Logo />
           </div>
           
-          {/* Navigation */}
-          <div className="flex-1 flex justify-center">
+          <div className="flex justify-center">
             <Navigation />
           </div>
           
@@ -674,9 +686,9 @@ export default function Home() {
         </header>
         
         {/* Main content */}
-        <main className="py-6 flex gap-4">
+        <main className="pt-8 flex gap-4">
           {/* Color palette section - Takes up most of the space (1086px from Figma) */}
-          <div className="flex-1 flex flex-col space-y-4 max-w-[1086px]">
+          <div className="w-[1086px] flex flex-col space-y-4">
             {/* Palette toolbar */}
             <PaletteToolbar
               onGenerateRandom={handleGenerateRandom}
@@ -740,8 +752,8 @@ export default function Home() {
             </DndContext>
           </div>
           
-          {/* Chat panel - Fixed width on the right */}
-          <div className="w-[300px]">
+          {/* Chat panel - Fixed width on the right with 16px gap */}
+          <div className="w-[322px]">
             <ChatPanel
               messages={adviceMessages}
               onAskForAdvice={handleAskForAdvice}

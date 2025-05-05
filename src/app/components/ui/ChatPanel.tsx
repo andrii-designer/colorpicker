@@ -1,5 +1,4 @@
 import React from 'react'
-import { Button } from './Button'
 import { cn } from '../../../lib/utils'
 import { FiMessageSquare } from 'react-icons/fi'
 
@@ -18,10 +17,14 @@ interface ChatPanelProps {
 
 export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProps) {
   return (
-    <div className={cn("flex flex-col h-full bg-neutral-50 rounded-lg border border-neutral-200 shadow-sm overflow-hidden", className)}>
-      <div className="p-4 border-b border-neutral-200 bg-white">
-        <h2 className="text-lg font-medium flex items-center">
-          <FiMessageSquare className="mr-2 text-primary-500" />
+    <div className={cn("flex flex-col h-full bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden", className)}>
+      <div className="p-4 border-b border-[#E5E5E5]">
+        <h2 className="text-lg font-medium flex items-center" style={{ 
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '18px',
+          fontWeight: 600
+        }}>
+          <FiMessageSquare className="mr-2 text-black" />
           Chat with Bobby
         </h2>
       </div>
@@ -31,40 +34,56 @@ export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProp
           messages.map((message) => (
             <div
               key={message.id}
-              className="bg-white p-4 rounded-lg shadow-sm border border-neutral-200"
+              className="bg-[#F5F5F5] p-4 rounded-xl"
             >
               <div className="flex items-center mb-2">
                 {message.icon && <span className="mr-2">{message.icon}</span>}
                 {message.score !== undefined && (
                   <div className="ml-auto flex items-center">
-                    <span className="text-sm font-medium mr-1">Score:</span>
-                    <span className={getScoreColorClass(message.score)}>
+                    <span className="text-sm font-medium mr-1" style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: 500
+                    }}>Score:</span>
+                    <span className={getScoreColorClass(message.score)} style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: 600
+                    }}>
                       {message.score.toFixed(1)}
                     </span>
                   </div>
                 )}
               </div>
-              <p className="text-neutral-700 text-sm">{message.text}</p>
+              <p className="text-black text-sm" style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: 400,
+                lineHeight: '1.5'
+              }}>{message.text}</p>
             </div>
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-neutral-500">
+          <div className="flex flex-col items-center justify-center h-full text-center text-[#888888]">
             <FiMessageSquare className="w-10 h-10 mb-2 opacity-50" />
-            <p className="text-sm">Ask Bobby for advice about your color palette</p>
+            <p className="text-sm" style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '14px',
+              fontWeight: 400
+            }}>Ask Bobby for advice about your color palette</p>
           </div>
         )}
       </div>
       
-      <div className="p-4 border-t border-neutral-200 bg-white">
-        <Button
-          variant="default"
-          size="default"
-          className="w-full"
+      <div className="p-4 border-t border-[#E5E5E5]">
+        <button
           onClick={onAskForAdvice}
+          className="w-full flex items-center justify-center px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900 transition-colors"
+          style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
         >
-          <FiMessageSquare className="mr-2" />
+          <FiMessageSquare className="mr-2 h-4 w-4" />
           Ask Bobby
-        </Button>
+        </button>
       </div>
     </div>
   )

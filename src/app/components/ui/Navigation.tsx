@@ -15,44 +15,45 @@ interface NavigationProps {
 
 export function Navigation({ className, items = defaultItems }: NavigationProps) {
   return (
-    <nav className={cn("flex items-center justify-center px-2", className)}>
-      <ul className="flex space-x-1 bg-neutral-100 p-1 rounded-lg">
-        {items.map((item) => (
-          <li key={item.name}>
-            <Link
-              href={item.href}
-              className={cn(
-                "block px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                item.active
-                  ? "bg-white text-primary-600 shadow-sm"
-                  : "text-neutral-600 hover:text-primary-600 hover:bg-white/50"
-              )}
-            >
-              {item.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <nav className={cn("inline-flex items-center gap-4", className)}>
+      {items.map((item) => (
+        <Link
+          key={item.name}
+          href={item.href}
+          className={cn(
+            "flex px-3 py-2 justify-center items-center gap-2.5 rounded-[99px]",
+            item.active
+              ? "bg-black text-white"
+              : "text-black hover:bg-neutral-100"
+          )}
+        >
+          <span className="text-base font-medium" style={{ 
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '16px',
+            fontStyle: 'normal',
+            fontWeight: 500,
+            lineHeight: 'normal'
+          }}>
+            {item.name}
+          </span>
+        </Link>
+      ))}
     </nav>
   )
 }
 
 const defaultItems: NavigationItem[] = [
   {
-    name: "Random Palette",
+    name: "Random palette",
     href: "/",
     active: true,
   },
   {
-    name: "Color Harmony",
+    name: "Based on color",
     href: "/color-harmony",
   },
   {
-    name: "Color Blindness",
-    href: "/color-blindness",
-  },
-  {
-    name: "Saved Palettes",
-    href: "/saved-palettes",
-  },
+    name: "From image",
+    href: "/from-image",
+  }
 ] 
