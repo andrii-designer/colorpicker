@@ -27,7 +27,7 @@ export function Navigation({ className, items = defaultItems }: NavigationProps)
               : "text-black hover:bg-neutral-100"
           )}
         >
-          <span className="text-base font-medium" style={{ 
+          <span style={{ 
             fontFamily: 'Inter, sans-serif',
             fontSize: '16px',
             fontStyle: 'normal',
