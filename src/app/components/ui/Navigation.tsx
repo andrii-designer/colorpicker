@@ -22,7 +22,7 @@ export function Navigation({ className, items = defaultItems }: NavigationProps)
           href={item.href}
           style={{
             display: 'flex',
-            padding: '8px 12px',
+            padding: '8px 16px',
             justifyContent: 'center',
             alignItems: 'center',
             gap: '10px',

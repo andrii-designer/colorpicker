@@ -18,6 +18,7 @@ import { Navigation } from './components/ui/Navigation';
 import { PaletteToolbar } from './components/ui/PaletteToolbar';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { PaletteDisplay } from './components/ui/PaletteDisplay';
+import { cn } from '../lib/utils';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -669,8 +670,8 @@ export default function Home() {
   // Render the new UI
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* Header with max width */}
-      <header className="py-6 border-b border-[#E5E5E5]">
+      {/* Header with max width - remove border-b and set padding to 16px */}
+      <header className="py-4">
         <div className="max-w-[1440px] mx-auto px-4 flex items-center justify-between">
           <div className="flex-1 flex items-center justify-start">
             <Logo />
@@ -680,53 +681,82 @@ export default function Home() {
             <Navigation />
           </div>
           
-          <div className="flex-1">
-            {/* Empty space for balance */}
+          <div className="flex-1 flex items-center justify-end">
+            <button
+              onClick={handleGenerateRandom}
+              className="flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900 transition-colors"
+              style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
+            >
+              <FiRefreshCw className="mr-2 h-4 w-4" />
+              Generate Random
+            </button>
           </div>
         </div>
       </header>
       
-      {/* Main content */}
+      {/* Main content - remove toolbar and adjust spacing */}
       <div className="max-w-[1440px] mx-auto px-4">
-        <main className="pt-8 flex gap-4">
+        <main className="flex gap-4">
           {/* Color palette section - Takes up most of the space (1086px from Figma) */}
-          <div className="w-[1086px] flex flex-col space-y-4">
-            {/* Palette toolbar */}
-            <PaletteToolbar
-              onGenerateRandom={handleGenerateRandom}
-              onUndo={() => {
-                if (canUndo) {
-                  // Use the previous state from history
-                  const prevColors = paletteHistory[historyIndex - 1];
-                  setRandomColors(prevColors);
-                  setHistoryIndex(historyIndex - 1);
-                  
-                  // Update analysis for the restored palette
-                  const analysis = analyzeColorPalette(prevColors);
-                  (window as any).__latestAnalysis = {
-                    advice: analysis.advice,
-                    score: analysis.score
-                  };
-                }
-              }}
-              onRedo={() => {
-                if (canRedo) {
-                  // Use the next state from history
-                  const nextColors = paletteHistory[historyIndex + 1];
-                  setRandomColors(nextColors);
-                  setHistoryIndex(historyIndex + 1);
-                  
-                  // Update analysis for the restored palette
-                  const analysis = analyzeColorPalette(nextColors);
-                  (window as any).__latestAnalysis = {
-                    advice: analysis.advice,
-                    score: analysis.score
-                  };
-                }
-              }}
-              undoDisabled={!canUndo}
-              redoDisabled={!canRedo}
-            />
+          <div className="w-[1086px] flex flex-col">
+            {/* Undo/Redo controls */}
+            <div className="flex items-center mb-4">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    if (canUndo) {
+                      // Use the previous state from history
+                      const prevColors = paletteHistory[historyIndex - 1];
+                      setRandomColors(prevColors);
+                      setHistoryIndex(historyIndex - 1);
+                      
+                      // Update analysis for the restored palette
+                      const analysis = analyzeColorPalette(prevColors);
+                      (window as any).__latestAnalysis = {
+                        advice: analysis.advice,
+                        score: analysis.score
+                      };
+                    }
+                  }}
+                  disabled={!canUndo}
+                  className={cn(
+                    "flex items-center px-4 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors",
+                    !canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  )}
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
+                >
+                  <FiArrowLeft className="mr-2 h-4 w-4" />
+                  Undo
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (canRedo) {
+                      // Use the next state from history
+                      const nextColors = paletteHistory[historyIndex + 1];
+                      setRandomColors(nextColors);
+                      setHistoryIndex(historyIndex + 1);
+                      
+                      // Update analysis for the restored palette
+                      const analysis = analyzeColorPalette(nextColors);
+                      (window as any).__latestAnalysis = {
+                        advice: analysis.advice,
+                        score: analysis.score
+                      };
+                    }
+                  }}
+                  disabled={!canRedo}
+                  className={cn(
+                    "flex items-center px-4 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors",
+                    !canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  )}
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
+                >
+                  <FiArrowRight className="mr-2 h-4 w-4" />
+                  Redo
+                </button>
+              </div>
+            </div>
             
             {/* DnD Context for drag and drop functionality */}
             <DndContext
