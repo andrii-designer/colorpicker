@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove } from 'react-icons/fi';
+import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove, FiArrowLeft } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
@@ -13,6 +13,11 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities';
 import { HexColorPicker } from 'react-colorful';
 import { createPortal } from 'react-dom';
+import { Logo } from './components/ui/Logo';
+import { Navigation } from './components/ui/Navigation';
+import { PaletteToolbar } from './components/ui/PaletteToolbar';
+import { ChatPanel } from './components/ui/ChatPanel';
+import { PaletteDisplay } from './components/ui/PaletteDisplay';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -351,10 +356,10 @@ export default function Home() {
   const [colorIds, setColorIds] = useState<string[]>([]);
   
   // Color picker state
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [editingColor, setEditingColor] = useState('');
-  const [editingColorIndex, setEditingColorIndex] = useState(-1);
-  const [pickerPosition, setPickerPosition] = useState<{ x: number, y: number } | undefined>(undefined);
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [currentEditingColor, setCurrentEditingColor] = useState('');
+  const [currentEditingIndex, setCurrentEditingIndex] = useState(-1);
+  const [colorPickerPosition, setColorPickerPosition] = useState<{ x: number, y: number } | undefined>(undefined);
   // Track the pre-editing colors for history
   const preEditColorsRef = useRef<string[]>([]);
   
@@ -551,28 +556,31 @@ export default function Home() {
   
   // Handle edit button click
   const handleEditClick = (color: string, index: number, event: React.MouseEvent) => {
+    // Stop propagation to prevent triggering the color click handler
     event.stopPropagation();
-    const buttonElement = event.currentTarget as HTMLElement;
-    const rect = buttonElement.getBoundingClientRect();
     
-    // Store the pre-edit colors for history
-    preEditColorsRef.current = JSON.parse(JSON.stringify(randomColors));
+    // Get the target element and its position
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    
+    // Store the current colors for undo history when the color picker is closed
+    preEditColorsRef.current = [...randomColors];
     console.log("Storing pre-edit colors:", preEditColorsRef.current);
     
-    setEditingColor(color);
-    setEditingColorIndex(index);
-    setPickerPosition({
+    setCurrentEditingColor(color);
+    setCurrentEditingIndex(index);
+    setColorPickerPosition({
       x: rect.left + (rect.width / 2),
       y: rect.bottom
     });
-    setShowColorPicker(true);
+    setColorPickerVisible(true);
   };
   
   // Handle color change from color picker
   const handleColorChange = (newColor: string) => {
-    if (editingColorIndex >= 0) {
+    if (currentEditingIndex >= 0) {
       const newColors = [...randomColors];
-      newColors[editingColorIndex] = newColor;
+      newColors[currentEditingIndex] = newColor;
       
       // Just update the UI without adding to history during active editing
       setRandomColors(newColors);
@@ -581,10 +589,10 @@ export default function Home() {
   
   // Handle closing the color picker
   const handleCloseColorPicker = () => {
-    setShowColorPicker(false);
+    setColorPickerVisible(false);
     
     // When the color picker is closed, add the final color to history
-    if (editingColorIndex >= 0 && preEditColorsRef.current.length > 0) {
+    if (currentEditingIndex >= 0 && preEditColorsRef.current.length > 0) {
       // Compare arrays to see if there was a change
       const hasChanged = !arraysEqual(preEditColorsRef.current, randomColors);
       console.log("Has palette changed?", hasChanged);
@@ -605,10 +613,10 @@ export default function Home() {
         
         console.log(`Updated color, now at history position ${newHistory.length - 1}`);
       }
-      
-      // Reset the pre-edit colors regardless
-      preEditColorsRef.current = [];
     }
+    
+    // Reset the editing state
+    setCurrentEditingIndex(-1);
   };
   
   // Handle drag end for reordering colors
@@ -644,231 +652,118 @@ export default function Home() {
     }
   };
   
+  // Render the new UI
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Toaster position="top-center" />
-      
-      {/* Header/Nav */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-700 font-medium">Logo</span>
-            </div>
+    <div className="min-h-screen bg-neutral-50">
+      <div className="max-w-[1440px] mx-auto px-4">
+        {/* Header */}
+        <header className="py-4 flex items-center justify-between">
+          <div className="flex-1">
+            {/* Logo */}
+            <Logo />
           </div>
           
-          {/* Navigation buttons */}
-          <div className="flex space-x-2">
-            <button 
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-300 transition-colors"
-              onClick={handleGenerateRandom}
-            >
-              Random palette
-            </button>
-            
-            <Link 
-              href="/base-color" 
-              className="bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-50 transition-colors"
-            >
-              Based on color
-            </Link>
-            
-            <Link 
-              href="/from-image" 
-              className="bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-50 transition-colors"
-            >
-              From image
-            </Link>
+          {/* Navigation */}
+          <div className="flex-1 flex justify-center">
+            <Navigation />
           </div>
-        </div>
-      </header>
-      
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Left Side - Color Palette */}
-          <div className="lg:col-span-3">
-            {/* Color Palette Display */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <DndContext 
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+          
+          <div className="flex-1">
+            {/* Empty space for balance */}
+          </div>
+        </header>
+        
+        {/* Main content */}
+        <main className="py-6 flex gap-4">
+          {/* Color palette section - Takes up most of the space (1086px from Figma) */}
+          <div className="flex-1 flex flex-col space-y-4 max-w-[1086px]">
+            {/* Palette toolbar */}
+            <PaletteToolbar
+              onGenerateRandom={handleGenerateRandom}
+              onUndo={() => {
+                if (canUndo) {
+                  // Use the previous state from history
+                  const prevColors = paletteHistory[historyIndex - 1];
+                  setRandomColors(prevColors);
+                  setHistoryIndex(historyIndex - 1);
+                  
+                  // Update analysis for the restored palette
+                  const analysis = analyzeColorPalette(prevColors);
+                  (window as any).__latestAnalysis = {
+                    advice: analysis.advice,
+                    score: analysis.score
+                  };
+                }
+              }}
+              onRedo={() => {
+                if (canRedo) {
+                  // Use the next state from history
+                  const nextColors = paletteHistory[historyIndex + 1];
+                  setRandomColors(nextColors);
+                  setHistoryIndex(historyIndex + 1);
+                  
+                  // Update analysis for the restored palette
+                  const analysis = analyzeColorPalette(nextColors);
+                  (window as any).__latestAnalysis = {
+                    advice: analysis.advice,
+                    score: analysis.score
+                  };
+                }
+              }}
+              undoDisabled={!canUndo}
+              redoDisabled={!canRedo}
+            />
+            
+            {/* DnD Context for drag and drop functionality */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={randomColors.map((_, i) => colorIds[i] || `color-${i}`)}
+                strategy={verticalListSortingStrategy}
               >
-                <SortableContext 
-                  items={colorIds.slice(0, randomColors.length)}
-                  strategy={verticalListSortingStrategy}
-                >
+                <div className="grid grid-cols-1 gap-4">
                   {randomColors.map((color, index) => (
                     <SortableColorItem
-                      key={colorIds[index]}
-                      id={colorIds[index]}
+                      key={colorIds[index] || `color-${index}`}
+                      id={colorIds[index] || `color-${index}`}
                       color={color}
                       index={index}
                       onColorClick={handleColorClick}
                       onEditClick={handleEditClick}
                     />
                   ))}
-                </SortableContext>
-              </DndContext>
-            </div>
-            
-            {/* Controls */}
-            <div className="mt-6 flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => {
-                    if (canUndo) {
-                      const newPosition = historyIndex - 1;
-                      console.log(`Undo: moving from position ${historyIndex} to ${newPosition}`);
-                      setHistoryIndex(newPosition);
-                      
-                      // Apply the previous palette
-                      const prevColors = paletteHistory[newPosition];
-                      setRandomColors(prevColors);
-                      
-                      // Update analysis for the restored palette
-                      const analysis = analyzeColorPalette(prevColors);
-                      (window as any).__latestAnalysis = {
-                        advice: analysis.advice,
-                        score: analysis.score
-                      };
-                      
-                      console.log("Applied undo to restore palette");
-                    }
-                  }}
-                  disabled={!canUndo}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${!canUndo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  aria-label="Undo"
-                  title="Undo to previous color palette"
-                >
-                  Undo
-                </button>
-                <button
-                  onClick={() => {
-                    if (canRedo) {
-                      const newPosition = historyIndex + 1;
-                      console.log(`Redo: moving from position ${historyIndex} to ${newPosition}`);
-                      setHistoryIndex(newPosition);
-                      
-                      // Apply the next palette
-                      const nextColors = paletteHistory[newPosition];
-                      setRandomColors(nextColors);
-                      
-                      // Update analysis for the restored palette
-                      const analysis = analyzeColorPalette(nextColors);
-                      (window as any).__latestAnalysis = {
-                        advice: analysis.advice,
-                        score: analysis.score
-                      };
-                      
-                      console.log("Applied redo to restore palette");
-                    }
-                  }}
-                  disabled={!canRedo}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${!canRedo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  aria-label="Redo"
-                  title="Redo to next color palette"
-                >
-                  Redo
-                </button>
-              </div>
-              
-              <button
-                onClick={handleGenerateRandom}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center"
-              >
-                <FiRefreshCw className="mr-2 h-4 w-4" />
-                Generate New Palette
-              </button>
-            </div>
-            
-            {/* Keyboard Hint */}
-            <div className="mt-3 text-center text-sm text-gray-500">
-              Press <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded font-mono text-xs">Enter</kbd> to generate new palette
-            </div>
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
           
-          {/* Right Side - Advice Chat */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow overflow-hidden h-full flex flex-col">
-              {/* Chat Header */}
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="font-medium">Color Advice</span>
-                  <div className="ml-2 flex items-center">
-                    <span className={`h-2 w-2 rounded-full bg-green-500 mr-1`}></span>
-                    <span className="text-xs text-gray-500">active</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-1">
-                  <button className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                    onClick={() => setShowAdviceChat(!showAdviceChat)}>
-                    <FiX className="h-4 w-4 text-gray-400" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Chat Messages */}
-              <div className="flex-1 p-4 overflow-y-auto max-h-[500px]">
-                {adviceMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                    <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                      <FiMessageSquare className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <p className="text-gray-500 text-sm">Generate a color palette to see analysis and advice here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {adviceMessages.map((message, index) => (
-                      <div key={message.id} className="bg-gray-100 rounded-lg p-4">
-                        <div className="flex items-center mb-2">
-                          <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center mr-2">
-                            {message.icon}
-                          </div>
-                          <div>
-                            <div className="text-xs font-medium text-gray-500">Color Advisor</div>
-                            {message.score !== undefined && (
-                              <div className="flex items-center">
-                                <span className="text-xs text-gray-500">Score: </span>
-                                <span className={`text-xs font-bold ml-1 ${getScoreColor(message.score)}`}>
-                                  {message.score}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-700">{message.text}</p>
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-                )}
-              </div>
-              
-              {/* Chat Input */}
-              <div className="p-4 border-t border-gray-200">
-                <button
-                  onClick={handleAskForAdvice}
-                  className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Ask for Advice
-                </button>
-              </div>
-            </div>
+          {/* Chat panel - Fixed width on the right */}
+          <div className="w-[300px]">
+            <ChatPanel
+              messages={adviceMessages}
+              onAskForAdvice={handleAskForAdvice}
+            />
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
       
-      {/* Color Picker Modal */}
-      {showColorPicker && (
-        <ColorPickerModal
-          color={editingColor}
-          onClose={handleCloseColorPicker}
-          onChange={handleColorChange}
-          anchorPosition={pickerPosition}
-        />
+      {/* Keep all the modals and notifications */}
+      {colorPickerVisible && (
+        createPortal(
+          <ColorPickerModal
+            color={currentEditingColor}
+            onClose={handleCloseColorPicker}
+            onChange={handleColorChange}
+            anchorPosition={colorPickerPosition}
+          />,
+          document.body
+        )
       )}
+      
+      <Toaster position="bottom-center" />
     </div>
   );
 }
