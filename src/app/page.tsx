@@ -669,23 +669,25 @@ export default function Home() {
   // Render the new UI
   return (
     <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-[1440px] mx-auto px-4">
-        {/* Header */}
-        <header className="py-6 flex items-center justify-between">
-          <div className="flex items-center">
+      {/* Header with max width */}
+      <header className="py-6 border-b border-[#E5E5E5]">
+        <div className="max-w-[1440px] mx-auto px-4 flex items-center justify-between">
+          <div className="flex-1 flex items-center justify-start">
             <Logo />
           </div>
           
-          <div className="flex justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <Navigation />
           </div>
           
           <div className="flex-1">
             {/* Empty space for balance */}
           </div>
-        </header>
-        
-        {/* Main content */}
+        </div>
+      </header>
+      
+      {/* Main content */}
+      <div className="max-w-[1440px] mx-auto px-4">
         <main className="pt-8 flex gap-4">
           {/* Color palette section - Takes up most of the space (1086px from Figma) */}
           <div className="w-[1086px] flex flex-col space-y-4">

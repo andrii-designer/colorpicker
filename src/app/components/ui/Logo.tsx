@@ -31,7 +31,7 @@ export function Logo({ className }: LogoProps) {
       {/* Text */}
       <span style={{ 
         color: '#000',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Inter',
         fontSize: '20px',
         fontStyle: 'normal',
         fontWeight: 600,
