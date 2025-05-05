@@ -1,0 +1,1 @@
+// Fix handleGenerateFromBase issue by moving useEffect

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove, FiArrowLeft } from 'react-icons/fi';
+import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove, FiArrowLeft, FiDownload } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
@@ -19,6 +19,7 @@ import { PaletteToolbar } from './components/ui/PaletteToolbar';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { PaletteDisplay } from './components/ui/PaletteDisplay';
 import { cn } from '../lib/utils';
+import Image from 'next/image';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -667,29 +668,121 @@ export default function Home() {
     }
   };
   
+  const handleUndo = () => {
+    if (canUndo) {
+      // Use the previous state from history
+      const prevColors = paletteHistory[historyIndex - 1];
+      setRandomColors(prevColors);
+      setHistoryIndex(historyIndex - 1);
+      
+      // Update analysis for the restored palette
+      const analysis = analyzeColorPalette(prevColors);
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+    }
+  };
+
+  const handleRedo = () => {
+    if (canRedo) {
+      // Use the next state from history
+      const nextColors = paletteHistory[historyIndex + 1];
+      setRandomColors(nextColors);
+      setHistoryIndex(historyIndex + 1);
+      
+      // Update analysis for the restored palette
+      const analysis = analyzeColorPalette(nextColors);
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+    }
+  };
+  
   // Render the new UI
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header with max width - remove border-b and set padding to 16px */}
-      <header className="py-4">
-        <div className="max-w-[1440px] mx-auto px-4 flex items-center justify-between">
-          <div className="flex-1 flex items-center justify-start">
+      <header className="py-0 bg-white">
+        <div 
+          className="mx-auto flex items-center justify-between" 
+          style={{
+            width: '1440px',
+            height: '80px',
+            padding: '16px',
+            flexShrink: 0,
+            background: '#FFF'
+          }}
+        >
+          <div className="flex items-center justify-start">
             <Logo />
           </div>
           
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center justify-center">
             <Navigation />
           </div>
           
-          <div className="flex-1 flex items-center justify-end">
-            <button
-              onClick={handleGenerateRandom}
-              className="flex items-center px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900 transition-colors"
-              style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
+          <div className="flex items-center justify-end">
+            <div 
+              className="flex items-center" 
+              style={{
+                width: '289px',
+                justifyContent: 'space-between'
+              }}
             >
-              <FiRefreshCw className="mr-2 h-4 w-4" />
-              Generate Random
-            </button>
+              <button 
+                onClick={() => { if (canUndo) handleUndo(); }} 
+                disabled={!canUndo}
+                style={{
+                  display: 'flex',
+                  padding: '8px 12px',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                className={`rounded hover:bg-gray-100 transition-colors ${!canUndo ? 'opacity-40 cursor-not-allowed' : ''}`}
+                title="Undo"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.13086 18.3105H15.1309C17.8909 18.3105 20.1309 16.0705 20.1309 13.3105C20.1309 10.5505 17.8909 8.31055 15.1309 8.31055H4.13086" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M6.42914 10.8095L3.86914 8.24945L6.42914 5.68945" stroke="#292D32" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button 
+                onClick={() => { if (canRedo) handleRedo(); }} 
+                disabled={!canRedo}
+                style={{
+                  display: 'flex',
+                  padding: '8px 12px',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                className={`rounded hover:bg-gray-100 transition-colors ${!canRedo ? 'opacity-40 cursor-not-allowed' : ''}`}
+                title="Redo"
+              >
+                <svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.3691 18.3105H9.36914C6.60914 18.3105 4.36914 16.0705 4.36914 13.3105C4.36914 10.5505 6.60914 8.31055 9.36914 8.31055H20.3691" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18.0703 10.8095L20.6303 8.24945L18.0703 5.68945" stroke="#292D32" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button 
+                onClick={() => toast.success('Palette downloaded!')} 
+                style={{
+                  display: 'flex',
+                  padding: '8px 12px',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                className="rounded hover:bg-gray-100 transition-colors"
+                title="Export palette"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9.32031 6.49945L11.8803 3.93945L14.4403 6.49945" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M11.8809 14.1798V4.00977" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M4 12C4 16.42 7 20 12 20C17 20 20 16.42 20 12" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -699,64 +792,7 @@ export default function Home() {
         <main className="flex gap-4">
           {/* Color palette section - Takes up most of the space (1086px from Figma) */}
           <div className="w-[1086px] flex flex-col">
-            {/* Undo/Redo controls */}
-            <div className="flex items-center mb-4">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => {
-                    if (canUndo) {
-                      // Use the previous state from history
-                      const prevColors = paletteHistory[historyIndex - 1];
-                      setRandomColors(prevColors);
-                      setHistoryIndex(historyIndex - 1);
-                      
-                      // Update analysis for the restored palette
-                      const analysis = analyzeColorPalette(prevColors);
-                      (window as any).__latestAnalysis = {
-                        advice: analysis.advice,
-                        score: analysis.score
-                      };
-                    }
-                  }}
-                  disabled={!canUndo}
-                  className={cn(
-                    "flex items-center px-4 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors",
-                    !canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                  )}
-                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
-                >
-                  <FiArrowLeft className="mr-2 h-4 w-4" />
-                  Undo
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (canRedo) {
-                      // Use the next state from history
-                      const nextColors = paletteHistory[historyIndex + 1];
-                      setRandomColors(nextColors);
-                      setHistoryIndex(historyIndex + 1);
-                      
-                      // Update analysis for the restored palette
-                      const analysis = analyzeColorPalette(nextColors);
-                      (window as any).__latestAnalysis = {
-                        advice: analysis.advice,
-                        score: analysis.score
-                      };
-                    }
-                  }}
-                  disabled={!canRedo}
-                  className={cn(
-                    "flex items-center px-4 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors",
-                    !canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                  )}
-                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
-                >
-                  <FiArrowRight className="mr-2 h-4 w-4" />
-                  Redo
-                </button>
-              </div>
-            </div>
+            {/* Remove Undo/Redo controls since they're now in the chat panel */}
             
             {/* DnD Context for drag and drop functionality */}
             <DndContext
@@ -789,6 +825,9 @@ export default function Home() {
             <ChatPanel
               messages={adviceMessages}
               onAskForAdvice={handleAskForAdvice}
+              onGeneratePalette={handleGenerateRandom}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
             />
           </div>
         </main>

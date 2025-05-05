@@ -1,11 +1,20 @@
 import { ColorEntry } from './colorDatabase';
 import { ACCURATE_COLOR_DATA } from './fixedAccurateColorData';
+import tinycolor from 'tinycolor2';
 
 export interface Color {
   hex: string;
   rgb: { r: number; g: number; b: number };
   hsl: { h: number; s: number; l: number };
   name?: string;
+}
+
+// Configuration interface for palette generation
+export interface PaletteOptions {
+  paletteType: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
+  useAdobeAlgorithm?: boolean;
+  count?: number;
+  seed?: number;
 }
 
 // Color harmony patterns
@@ -230,353 +239,315 @@ function findNearestNamedColor(color: Color, colorData: ColorEntry[]): ColorEntr
 // Main Color Palette Generation
 // ===========================================
 
+/**
+ * Convert a hex color to a Color object
+ */
+const hexToColor = (hex: string, name?: string): Color => {
+  const tc = tinycolor(hex);
+  const rgb = tc.toRgb();
+  const hsl = tc.toHsl();
+  
+  return {
+    hex: tc.toHexString(),
+    rgb: { r: rgb.r, g: rgb.g, b: rgb.b },
+    hsl: { h: hsl.h, s: hsl.s * 100, l: hsl.l * 100 },
+    name
+  };
+};
+
+/**
+ * Get a color with adjusted luminance
+ */
+const getShade = (color: string, shade: number): string => {
+  const tc = tinycolor(color);
+  if (shade > 0) {
+    return tc.lighten(shade * 10).toString();
+  } else {
+    return tc.darken(Math.abs(shade) * 10).toString();
+  }
+};
+
+/**
+ * Generate a monochromatic palette from a base color
+ */
+const generateMonochromaticPalette = (baseColor: string, count = 5): string[] => {
+  const result = [baseColor];
+  const tc = tinycolor(baseColor);
+  
+  // Generate darker shades
+  for (let i = 1; i < Math.ceil(count / 2); i++) {
+    const dark = tinycolor(baseColor).darken(i * 10);
+    result.unshift(dark.toHexString());
+  }
+  
+  // Generate lighter tints
+  for (let i = 1; i <= Math.floor(count / 2); i++) {
+    const light = tinycolor(baseColor).lighten(i * 10);
+    result.push(light.toHexString());
+  }
+  
+  // Return the correct number of colors
+  return result.slice(0, count);
+};
+
+/**
+ * Generate a complementary palette
+ */
+const generateComplementaryPalette = (baseColor: string, count = 5): string[] => {
+  const result = [baseColor];
+  const tc = tinycolor(baseColor);
+  const complement = tc.clone().spin(180).toHexString();
+  
+  result.push(complement);
+  
+  // Add variations
+  if (count > 2) {
+    result.push(tinycolor(baseColor).lighten(10).toHexString());
+  }
+  
+  if (count > 3) {
+    result.push(tinycolor(complement).lighten(10).toHexString());
+  }
+  
+  if (count > 4) {
+    result.push(tinycolor(baseColor).darken(10).toHexString());
+  }
+  
+  return result;
+};
+
+/**
+ * Generate an analogous palette
+ */
+const generateAnalogousPalette = (baseColor: string, count = 5): string[] => {
+  const result = [baseColor];
+  const tc = tinycolor(baseColor);
+  
+  // Generate colors on both sides of the base color on the color wheel
+  const step = 30;
+  
+  for (let i = 1; i <= Math.floor(count / 2); i++) {
+    const rightColor = tc.clone().spin(step * i).toHexString();
+    result.push(rightColor);
+    
+    if (result.length < count) {
+      const leftColor = tc.clone().spin(-step * i).toHexString();
+      result.unshift(leftColor);
+    }
+  }
+  
+  // Return the correct number of colors
+  return result.slice(0, count);
+};
+
+/**
+ * Generate a triadic palette
+ */
+const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
+  const tc = tinycolor(baseColor);
+  
+  // Create three colors 120 degrees apart
+  const color1 = baseColor;
+  const color2 = tc.clone().spin(120).toHexString();
+  const color3 = tc.clone().spin(240).toHexString();
+  
+  const result = [color1, color2, color3];
+  
+  // Add variations if needed
+  if (count > 3) {
+    result.push(tinycolor(color1).lighten(10).toHexString());
+  }
+  
+  if (count > 4) {
+    result.push(tinycolor(color2).lighten(10).toHexString());
+  }
+  
+  return result;
+};
+
+/**
+ * Generate a tetradic palette
+ */
+const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
+  const tc = tinycolor(baseColor);
+  
+  // Create four colors 90 degrees apart
+  const color1 = baseColor;
+  const color2 = tc.clone().spin(90).toHexString();
+  const color3 = tc.clone().spin(180).toHexString();
+  const color4 = tc.clone().spin(270).toHexString();
+  
+  const result = [color1, color2, color3, color4];
+  
+  // Add variations if needed
+  if (count > 4) {
+    result.push(tinycolor(color1).lighten(10).toHexString());
+  }
+  
+  return result;
+};
+
+/**
+ * Generate a split complementary palette
+ */
+const generateSplitComplementaryPalette = (baseColor: string, count = 5): string[] => {
+  const tc = tinycolor(baseColor);
+  
+  // Create a base color and two colors adjacent to its complement
+  const color1 = baseColor;
+  const color2 = tc.clone().spin(150).toHexString();
+  const color3 = tc.clone().spin(210).toHexString();
+  
+  const result = [color1, color2, color3];
+  
+  // Add variations if needed
+  if (count > 3) {
+    result.push(tinycolor(color1).lighten(10).toHexString());
+  }
+  
+  if (count > 4) {
+    result.push(tinycolor(color2).lighten(10).toHexString());
+  }
+  
+  return result;
+};
+
+/**
+ * Apply Adobe-style harmonization to a color palette
+ */
+const applyAdobeHarmonization = (colors: string[]): string[] => {
+  return colors.map(color => {
+    const tc = tinycolor(color);
+    const hsl = tc.toHsl();
+    
+    // Adjust saturation and lightness for more harmonious colors
+    const adjustedS = Math.min(Math.max(hsl.s * 0.9 + 0.1, 0.3), 0.8);
+    const adjustedL = Math.min(Math.max(hsl.l * 0.85 + 0.15, 0.3), 0.8);
+    
+    // Return the adjusted color
+    return tinycolor({h: hsl.h, s: adjustedS, l: adjustedL}).toHexString();
+  });
+};
+
+/**
+ * Generate a color palette based on the specified options
+ */
 export function generateColorPalette(
-  baseColor: string,
-  options: {
-    numColors?: number;
-    useNamedColors?: boolean;
-    namedColorRatio?: number;
-    paletteType?: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
-    colorData?: ColorEntry[];
-    enforceMinContrast?: boolean;
-    temperature?: 'warm' | 'cool' | 'neutral' | 'mixed';
-  } = {}
+  baseColor: string, 
+  options: PaletteOptions
 ): Color[] {
-  // Extract options with defaults
   const {
-    numColors = 5,
-    useNamedColors = true,
-    namedColorRatio = 0.5,
-    paletteType = 'analogous',
-    colorData = ACCURATE_COLOR_DATA,
-    enforceMinContrast = true,
-    temperature = 'mixed'
+    paletteType,
+    useAdobeAlgorithm = true,
+    count = 5
   } = options;
+
+  // Convert base color
+  const base = tinycolor(baseColor);
+  const baseHsl = base.toHsl();
   
-  // Add extreme randomization with multiple entropy sources
-  const uniqueTimestamp = Date.now();
-  const randomSeed1 = Math.sin(uniqueTimestamp) * 10000;
-  const randomSeed2 = Math.cos(uniqueTimestamp / 1000) * 10000;
-  const randomSeed3 = Math.random() * 10000;
-  
-  // Random variation function
-  const getRandom = (min: number, max: number) => {
-    const rand = Math.abs((randomSeed1 + randomSeed2 + randomSeed3) * Math.random()) % 1;
-    return min + rand * (max - min);
-  };
-  
-  // Normalize the base color
-  const normalizedBaseColor = baseColor.toUpperCase();
-  
-  // Convert to HSL
-  const baseHSL = hexToHSL(normalizedBaseColor);
-  
-  // Create a significantly randomized base HSL for variety
-  const randomizedHSL = { ...baseHSL };
-  
-  // Apply different randomization strategies based on palette type
-  switch (paletteType) {
-    case 'monochromatic':
-      // Subtle hue shift, moderate sat/light shifts
-      randomizedHSL.h = (baseHSL.h + getRandom(-10, 10)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-20, 20)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
-      break;
-      
-    case 'complementary':
-      // Major hue shift
-      randomizedHSL.h = (baseHSL.h + getRandom(-45, 45)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-30, 30)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-25, 25)));
-      break;
-      
-    case 'analogous':
-      // Moderate hue shift
-      randomizedHSL.h = (baseHSL.h + getRandom(-30, 30)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-25, 25)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
-      break;
-      
-    case 'triadic':
-      // Significant hue shift
-      randomizedHSL.h = (baseHSL.h + getRandom(-40, 40)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-30, 30)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
-      break;
-      
-    case 'tetradic':
-      // Extreme hue shift
-      randomizedHSL.h = (baseHSL.h + getRandom(-45, 45)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-35, 35)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-25, 25)));
-      break;
-      
-    case 'splitComplementary':
-      // Major hue shift
-      randomizedHSL.h = (baseHSL.h + getRandom(-40, 40)) % 360;
-      randomizedHSL.s = Math.min(100, Math.max(20, baseHSL.s + getRandom(-25, 25)));
-      randomizedHSL.l = Math.min(85, Math.max(25, baseHSL.l + getRandom(-20, 20)));
-      break;
-  }
-  
-  // Ensure hue is properly wrapped
-  if (randomizedHSL.h < 0) randomizedHSL.h += 360;
-  
-  // Add even more time-based randomness
-  const timeRandom = (uniqueTimestamp % 100000) / 100000;
-  randomizedHSL.h = (randomizedHSL.h + (timeRandom * 360 * 0.1)) % 360;
-  
-  // Initialize the palette with the original color
-  const palette: Color[] = [{
-    hex: normalizedBaseColor,
-    rgb: hslToRgb(baseHSL.h, baseHSL.s, baseHSL.l),
-    hsl: baseHSL
+  // Create result array with base color
+  const result: Color[] = [{
+    hex: base.toHexString(),
+    rgb: base.toRgb(),
+    hsl: {
+      h: baseHsl.h,
+      s: baseHsl.s * 100,
+      l: baseHsl.l * 100
+    },
+    name: 'Base'
   }];
-  
-  // Generate the remaining colors based on palette type
-  switch (paletteType) {
-    case 'monochromatic': {
-      // Create a range of lightness values
-      for (let i = 1; i < numColors; i++) {
-        const l = 20 + (60 * (i / numColors)) + getRandom(-15, 15);
-        const s = baseHSL.s + getRandom(-20, 20);
-        palette.push({
-          hsl: { h: randomizedHSL.h, s, l },
-          hex: hslToHex(randomizedHSL.h, s, l),
-          rgb: hslToRgb(randomizedHSL.h, s, l)
-        });
-      }
-      break;
-    }
+
+  // Generate additional colors
+  for (let i = 1; i < count; i++) {
+    // Default to base color properties
+    let h = baseHsl.h;
+    let s = baseHsl.s;
+    let l = baseHsl.l;
     
-    case 'complementary': {
-      // Complementary color (opposite hue)
-      const complementHue = (randomizedHSL.h + 180) % 360;
-      
-      for (let i = 1; i < numColors; i++) {
-        let h, s, l;
+    // Adjust based on palette type
+    switch (paletteType) {
+      case 'monochromatic':
+        // Only adjust lightness
+        l = baseHsl.l + (i % 2 === 0 ? 0.2 : -0.2) * Math.min(0.4, Math.ceil(i / 2) * 0.1);
+        l = Math.max(0.1, Math.min(0.9, l));
+        break;
         
+      case 'complementary':
+        // Use opposite hue for some colors
+        if (i % 2 === 1) {
+          h = (baseHsl.h + 180) % 360;
+        }
+        break;
+        
+      case 'analogous':
+        // Neighboring hues
+        h = (baseHsl.h + (i % 2 === 0 ? 1 : -1) * (i * 15)) % 360;
+        if (h < 0) h += 360;
+        break;
+        
+      case 'triadic':
+        // Three colors 120° apart
+        h = (baseHsl.h + (i % 3) * 120) % 360;
+        break;
+        
+      case 'tetradic':
+        // Four colors 90° apart
+        h = (baseHsl.h + (i % 4) * 90) % 360;
+        break;
+        
+      case 'splitComplementary':
+        // Base + two colors near complement
         if (i === 1) {
-          // True complement
-          h = complementHue;
-          s = baseHSL.s + getRandom(-10, 10);
-          l = baseHSL.l + getRandom(-10, 10);
+          h = (baseHsl.h + 150) % 360;
         } else if (i === 2) {
-          // Darkened base
-          h = randomizedHSL.h;
-          s = baseHSL.s + getRandom(-5, 15);
-          l = Math.max(20, baseHSL.l - 15 + getRandom(-10, 10));
-        } else if (i === 3) {
-          // Lightened base
-          h = randomizedHSL.h;
-          s = Math.max(20, baseHSL.s - 10 + getRandom(-10, 10));
-          l = Math.min(85, baseHSL.l + 15 + getRandom(-10, 10));
+          h = (baseHsl.h + 210) % 360;
         } else {
-          // Darkened complement
-          h = complementHue;
-          s = baseHSL.s + getRandom(-10, 10);
-          l = Math.max(20, baseHSL.l - 15 + getRandom(-10, 10));
+          h = (baseHsl.h + (i % 3) * 120) % 360;
         }
-        
-        palette.push({
-          hsl: { h, s, l },
-          hex: hslToHex(h, s, l),
-          rgb: hslToRgb(h, s, l)
-        });
-      }
-      break;
+        break;
     }
     
-    case 'analogous': {
-      // Colors adjacent on the color wheel
-      const range = 40 + getRandom(0, 20);
-      
-      for (let i = 1; i < numColors; i++) {
-        // Distribute colors across the range
-        const position = i / (numColors - 1);
-        const hOffset = range * (position - 0.5);
-        const h = (randomizedHSL.h + hOffset + 360) % 360;
-        
-        // Vary saturation and lightness
-        const s = baseHSL.s + getRandom(-15, 15);
-        const l = baseHSL.l + getRandom(-20, 20);
-        
-        palette.push({
-          hsl: { h, s, l },
-          hex: hslToHex(h, s, l),
-          rgb: hslToRgb(h, s, l)
-        });
-      }
-      break;
+    // Create new color
+    const newColor = tinycolor({h, s, l});
+    
+    // Apply harmonization if requested
+    let finalColor = newColor;
+    if (useAdobeAlgorithm) {
+      const adjustedHsl = newColor.toHsl();
+      const harmonizedColor = tinycolor({
+        h: adjustedHsl.h,
+        s: Math.min(Math.max(adjustedHsl.s * 0.9 + 0.1, 0.3), 0.8),
+        l: Math.min(Math.max(adjustedHsl.l * 0.85 + 0.15, 0.3), 0.8)
+      });
+      finalColor = harmonizedColor;
     }
     
-    case 'triadic': {
-      // Three colors equally spaced
-      const triad1 = (randomizedHSL.h + 120) % 360;
-      const triad2 = (randomizedHSL.h + 240) % 360;
-      
-      for (let i = 1; i < numColors; i++) {
-        let h, s, l;
-        
-        if (i === 1) {
-          h = triad1;
-          s = baseHSL.s + getRandom(-10, 10);
-          l = baseHSL.l + getRandom(-10, 10);
-        } else if (i === 2) {
-          h = triad2;
-          s = baseHSL.s + getRandom(-10, 10);
-          l = baseHSL.l + getRandom(-10, 10);
-        } else if (i === 3) {
-          // Variant of first triad
-          h = (triad1 + getRandom(-20, 20)) % 360;
-          s = baseHSL.s + getRandom(-15, 15);
-          l = baseHSL.l + getRandom(-20, 20);
-        } else {
-          // Variant of second triad
-          h = (triad2 + getRandom(-20, 20)) % 360;
-          s = baseHSL.s + getRandom(-15, 15);
-          l = baseHSL.l + getRandom(-20, 20);
-        }
-        
-        palette.push({
-          hsl: { h, s, l },
-          hex: hslToHex(h, s, l),
-          rgb: hslToRgb(h, s, l)
-        });
-      }
-      break;
+    // Get final color properties
+    const finalHsl = finalColor.toHsl();
+    
+    // Generate name
+    let name = '';
+    if (paletteType === 'monochromatic') {
+      name = i % 2 === 0 ? `Tint ${Math.ceil(i / 2)}` : `Shade ${Math.ceil(i / 2)}`;
+    } else {
+      name = `Color ${i + 1}`;
     }
     
-    case 'tetradic': {
-      // Four colors forming a rectangle on the color wheel
-      const tetrad1 = (randomizedHSL.h + 90) % 360;
-      const tetrad2 = (randomizedHSL.h + 180) % 360;
-      const tetrad3 = (randomizedHSL.h + 270) % 360;
-      
-      const hues = [tetrad1, tetrad2, tetrad3];
-      
-      for (let i = 1; i < numColors; i++) {
-        const h = i <= 3 ? hues[i - 1] : hues[(i - 1) % 3];
-        const s = baseHSL.s + getRandom(-15, 15);
-        const l = baseHSL.l + (i > 3 ? 15 : 0) + getRandom(-15, 15);
-        
-        palette.push({
-          hsl: { h, s, l },
-          hex: hslToHex(h, s, l),
-          rgb: hslToRgb(h, s, l)
-        });
-      }
-      break;
-    }
-    
-    case 'splitComplementary': {
-      // Base plus two colors adjacent to its complement
-      const complement = (randomizedHSL.h + 180) % 360;
-      const split1 = (complement - 30 + getRandom(-15, 15) + 360) % 360;
-      const split2 = (complement + 30 + getRandom(-15, 15)) % 360;
-      
-      const hues = [split1, split2];
-      
-      for (let i = 1; i < numColors; i++) {
-        let h, s, l;
-        
-        if (i <= 2) {
-          h = hues[i - 1];
-          s = baseHSL.s + getRandom(-10, 10);
-          l = baseHSL.l + getRandom(-10, 10);
-        } else if (i === 3) {
-          // Variant of first split
-          h = (split1 + getRandom(-20, 20)) % 360;
-          s = baseHSL.s + getRandom(-15, 15);
-          l = baseHSL.l + getRandom(-20, 20);
-        } else {
-          // Variant of second split
-          h = (split2 + getRandom(-20, 20)) % 360;
-          s = baseHSL.s + getRandom(-15, 15);
-          l = baseHSL.l + getRandom(-20, 20);
-        }
-        
-        palette.push({
-          hsl: { h, s, l },
-          hex: hslToHex(h, s, l),
-          rgb: hslToRgb(h, s, l)
-        });
-      }
-      break;
-    }
-    
-    default: {
-      // Fallback to random colors
-      for (let i = 1; i < numColors; i++) {
-        palette.push(generateRandomColor());
-      }
-    }
+    // Add to result
+    result.push({
+      hex: finalColor.toHexString(),
+      rgb: finalColor.toRgb(),
+      hsl: {
+        h: finalHsl.h,
+        s: finalHsl.s * 100,
+        l: finalHsl.l * 100
+      },
+      name
+    });
   }
   
-  // Apply temperature adjustment if needed
-  if (temperature !== 'mixed') {
-    for (let i = 1; i < palette.length; i++) {
-      let h = palette[i].hsl.h;
-      
-      if (temperature === 'warm' && (h > 90 && h < 270)) {
-        // Shift cool colors to warm range
-        h = (h + 180) % 360;
-      } else if (temperature === 'cool' && (h < 90 || h > 270)) {
-        // Shift warm colors to cool range
-        h = (h + 180) % 360;
-      }
-      
-      // Update color
-      palette[i].hsl.h = h;
-      palette[i].rgb = hslToRgb(h, palette[i].hsl.s, palette[i].hsl.l);
-      palette[i].hex = hslToHex(h, palette[i].hsl.s, palette[i].hsl.l);
-    }
-  }
-  
-  // Ensure minimum contrast if required
-  const contrastAdjusted = enforceMinContrast ? improveContrast(palette) : palette;
-  
-  // Apply named colors if requested
-  if (useNamedColors) {
-    const namedCount = Math.max(1, Math.floor(numColors * namedColorRatio));
-    
-    for (let i = 1; i < palette.length && i <= namedCount; i++) {
-      const namedColor = findNearestNamedColor(contrastAdjusted[i], colorData);
-      
-      if (namedColor) {
-        contrastAdjusted[i] = {
-          hex: namedColor.hex || contrastAdjusted[i].hex,
-          rgb: namedColor.rgb || contrastAdjusted[i].rgb,
-          hsl: { 
-            h: namedColor.hue, 
-            s: namedColor.saturation, 
-            l: namedColor.lightness 
-          },
-          name: namedColor.name
-        };
-      }
-    }
-  }
-  
-  // Ensure the base color is preserved
-  contrastAdjusted[0] = {
-    hex: normalizedBaseColor,
-    rgb: hslToRgb(baseHSL.h, baseHSL.s, baseHSL.l),
-    hsl: baseHSL
-  };
-  
-  // Add analysis data
-  const analysis = {
-    harmony: 0.8,
-    contrast: 0.7,
-    variety: 0.9
-  };
-  
-  if (contrastAdjusted[0]) {
-    (contrastAdjusted[0] as any).evaluation = analysis;
-  }
-  
-  return contrastAdjusted;
+  return result;
 }
 
 // Placeholder for now - will be implemented later

@@ -1,6 +1,6 @@
 import React from 'react'
 import { cn } from '../../../lib/utils'
-import { FiMessageSquare } from 'react-icons/fi'
+import Image from 'next/image'
 
 interface ChatMessage {
   id: string
@@ -13,20 +13,16 @@ interface ChatPanelProps {
   className?: string
   messages: ChatMessage[]
   onAskForAdvice: () => void
+  onGeneratePalette?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
-export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProps) {
+export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }: ChatPanelProps) {
   return (
     <div className={cn("flex flex-col h-full bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden", className)}>
-      <div className="p-4 border-b border-[#E5E5E5]">
-        <h2 className="text-lg font-medium flex items-center" style={{ 
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '18px',
-          fontWeight: 600
-        }}>
-          <FiMessageSquare className="mr-2 text-black" />
-          Chat with Bobby
-        </h2>
+      <div className="p-4 border-b border-[#E5E5E5] flex justify-between items-center">
+        <h3 className="font-medium text-base">Color Palette Assistant</h3>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -44,13 +40,13 @@ export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProp
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
                       fontWeight: 500
-                    }}>Score:</span>
+                    }}>Rating:</span>
                     <span className={getScoreColorClass(message.score)} style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
                       fontWeight: 600
                     }}>
-                      {message.score.toFixed(1)}
+                      {message.score}/10
                     </span>
                   </div>
                 )}
@@ -65,7 +61,6 @@ export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProp
           ))
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center text-[#888888]">
-            <FiMessageSquare className="w-10 h-10 mb-2 opacity-50" />
             <p className="text-sm" style={{
               fontFamily: 'Inter, sans-serif',
               fontSize: '14px',
@@ -75,14 +70,31 @@ export function ChatPanel({ className, messages, onAskForAdvice }: ChatPanelProp
         )}
       </div>
       
-      <div className="p-4 border-t border-[#E5E5E5]">
+      <div className="px-4 pb-4 flex flex-col gap-2 mt-auto">
         <button
           onClick={onAskForAdvice}
-          className="w-full flex items-center justify-center px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900 transition-colors"
-          style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500 }}
+          className="w-[306px] h-[48px] rounded-[999px] border border-black flex items-center justify-center mx-auto"
+          style={{ 
+            fontFamily: 'Inter', 
+            fontSize: '16px', 
+            fontWeight: 400,
+            color: '#000'
+          }}
         >
-          <FiMessageSquare className="mr-2 h-4 w-4" />
           Ask Bobby
+        </button>
+        
+        <button
+          onClick={onGeneratePalette}
+          className="w-[306px] h-[48px] rounded-[999px] bg-black flex items-center justify-center mx-auto mt-2"
+          style={{ 
+            fontFamily: 'Inter', 
+            fontSize: '16px', 
+            fontWeight: 400,
+            color: '#FFF'
+          }}
+        >
+          Generate Palette
         </button>
       </div>
     </div>
