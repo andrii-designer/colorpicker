@@ -20,15 +20,19 @@ export function Navigation({ className, items = defaultItems }: NavigationProps)
         <Link
           key={item.name}
           href={item.href}
-          className={cn(
-            "flex px-3 py-2 justify-center items-center gap-2.5 rounded-[99px]",
-            item.active
-              ? "bg-black text-white"
-              : "text-black hover:bg-neutral-100"
-          )}
+          style={{
+            display: 'flex',
+            padding: '8px 12px',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '10px',
+            borderRadius: '99px',
+            background: item.active ? '#000' : 'transparent'
+          }}
         >
           <span style={{ 
-            fontFamily: 'Inter, sans-serif',
+            color: item.active ? '#FFF' : '#000',
+            fontFamily: 'Inter',
             fontSize: '16px',
             fontStyle: 'normal',
             fontWeight: 500,
