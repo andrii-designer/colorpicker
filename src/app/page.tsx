@@ -488,7 +488,7 @@ export default function Home() {
     if (hasInitializedRef.current) return;
     
     // Generate initial palette
-    const initialColors = generateHarmoniousPalette();
+    const initialColors = generateHarmoniousPalette('#4080FF', 'analogous', 5);
     
     // Set the colors
     setRandomColors(initialColors);
@@ -496,6 +496,22 @@ export default function Home() {
     // Initialize history with the initial palette
     setPaletteHistory([initialColors]);
     setHistoryIndex(0);
+    
+    // Set up loading/banner animation
+    const timer = setTimeout(() => {
+      setShowAdviceChat(true);
+    }, 300);
+    
+    // Set up assistant message animation
+    const messageTimer = setTimeout(() => {
+      setAdviceMessages([
+        {
+          id: '1',
+          text: 'Welcome! Generate color palettes, or click a color to copy it.',
+          icon: <FiMessageSquare />
+        }
+      ]);
+    }, 1000);
     
     // Set up the initial analysis
     const analysis = analyzeColorPalette(initialColors);
@@ -508,6 +524,11 @@ export default function Home() {
     hasInitializedRef.current = true;
     
     console.log("Initial palette generated and history initialized");
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(messageTimer);
+    };
   }, []);
   
   // Handle key press for generating new palette
@@ -519,7 +540,7 @@ export default function Home() {
         event.preventDefault(); // Prevent default form submission
         
         // Generate new palette directly here
-        const newColors = generateHarmoniousPalette();
+        const newColors = generateHarmoniousPalette('#' + Math.floor(Math.random()*16777215).toString(16), 'analogous', 5);
         
         // Add to history
         const newHistory = paletteHistory.slice(0, historyIndex + 1);
@@ -551,7 +572,7 @@ export default function Home() {
   function handleGenerateRandom() {
     try {
       // Generate new random colors
-      const newColors = generateHarmoniousPalette();
+      const newColors = generateHarmoniousPalette('#' + Math.floor(Math.random()*16777215).toString(16), 'analogous', 5);
       
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);

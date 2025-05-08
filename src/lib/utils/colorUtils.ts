@@ -2,6 +2,11 @@
  * Color utility functions for generating color harmonies based on coolors.co rules
  */
 
+import tinycolor from 'tinycolor2';
+
+// Cast tinycolor to any to avoid type errors
+const tinycolorLib: any = tinycolor;
+
 // Types for our color formats
 export interface HSLColor {
   h: number; // Hue (0-360)
@@ -438,4 +443,74 @@ function generateMonochromaticPalette(baseHsl: HSLColor, palette: string[], coun
     };
     palette.push(hslToHex(monoHsl));
   }
+}
+
+// Color utility functions
+
+// Checks if color is light or dark
+export function isLightColor(hexColor: string): boolean {
+  const tc = tinycolorLib(hexColor);
+  // Use tinycolor's own calculation
+  return tc.getLuminance() > 0.5;
+}
+
+// Gets contrasting text color (black or white) based on background color
+export function getContrastText(hexColor: string): string {
+  return isLightColor(hexColor) ? '#000000' : '#FFFFFF';
+}
+
+// Calculates contrast ratio between two colors
+export function getContrastRatio(color1: string, color2: string): number {
+  return tinycolorLib.readability(color1, color2);
+}
+
+// Determine if a color meets WCAG AA standards for text
+export function meetsWCAGAA(backgroundColor: string, textColor: string): boolean {
+  const ratio = getContrastRatio(backgroundColor, textColor);
+  return ratio >= 4.5;
+}
+
+// Determine if a color meets WCAG AAA standards for text
+export function meetsWCAGAAA(backgroundColor: string, textColor: string): boolean {
+  const ratio = getContrastRatio(backgroundColor, textColor);
+  return ratio >= 7;
+}
+
+// Returns a lighter version of a color
+export function lighten(hexColor: string, amount: number = 10): string {
+  const tc = tinycolorLib(hexColor);
+  return tc.lighten(amount).toString();
+}
+
+// Returns a darker version of a color
+export function darken(hexColor: string, amount: number = 10): string {
+  const tc = tinycolorLib(hexColor);
+  return tc.darken(amount).toString();
+}
+
+// Returns a desaturated version of a color
+export function desaturate(hexColor: string, amount: number = 10): string {
+  const tc = tinycolorLib(hexColor);
+  return tc.desaturate(amount).toString();
+}
+
+// Returns a saturated version of a color
+export function saturate(hexColor: string, amount: number = 10): string {
+  const tc = tinycolorLib(hexColor);
+  return tc.saturate(amount).toString();
+}
+
+// RgbToHex overload for separate R, G, B values
+export function rgbComponentsToHex(r: number, g: number, b: number): string {
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// Creates CSS RGB string
+export function rgbString(r: number, g: number, b: number): string {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Creates CSS RGBA string
+export function rgbaString(r: number, g: number, b: number, a: number): string {
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }

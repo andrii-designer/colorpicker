@@ -1,5 +1,5 @@
 // Import from colorAnalysisNew - using the correct function names
-import { generateHarmoniousPalette, analyzeColorPalette, hslToHex } from './colorAnalysisNew';
+import { generateHarmoniousPalette, analyzeColorPalette } from './colorAnalysisNew';
 
 // Import from generateColors - only import what's actually exported
 import { generateColorPalette, regenerateWithLockedColors } from './generateColors';
@@ -10,7 +10,6 @@ export {
   // From colorAnalysisNew
   generateHarmoniousPalette,
   analyzeColorPalette,
-  hslToHex,
   
   // From generateColors
   generateColorPalette,

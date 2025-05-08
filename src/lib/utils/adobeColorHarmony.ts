@@ -35,9 +35,12 @@ interface HSLColor {
   l: number;
 }
 
+// Cast tinycolor to any to avoid type errors
+const tinycolorLib: any = tinycolor;
+
 // Convert hex to HSL
 const hexToHSL = (hex: string): HSLColor => {
-  const color = tinycolor(hex);
+  const color = tinycolorLib(hex);
   const hsl = color.toHsl();
   return {
     h: hsl.h,
@@ -54,7 +57,7 @@ const hslToHex = (hsl: HSLColor): string => {
   
   // Create HSL color string that tinycolor can parse
   const hslString = `hsl(${hsl.h}, ${s * 100}%, ${l * 100}%)`;
-  return tinycolor(hslString).toHexString();
+  return tinycolorLib(hslString).toHexString();
 };
 
 /**
@@ -408,5 +411,311 @@ export function generateTetradicPalette(baseColor: string, count: number = 5): s
  * @returns Array of hex colors
  */
 export function generateSplitComplementaryPalette(baseColor: string, count: number = 5): string[] {
-  return generateAdobeHarmonyPalette(baseColor, 'split-complementary', count);
+  return generateAdobeCompoundPalette(baseColor, count);
+}
+
+// Adobe Color Harmony Utilities
+// Based on Adobe Color wheel algorithms
+
+export interface AdobeHarmonyOptions {
+  rule: 'analogous' | 'monochromatic' | 'triad' | 'complementary' | 'tetrad' | 'compound' | 'shades';
+  count?: number;
+  padding?: number;
+}
+
+/**
+ * Generate a color harmony palette based on Adobe Color rules
+ * @param baseColor Base color in hex format
+ * @param options Harmony options
+ * @returns Array of hex color codes
+ */
+export function generateHarmoniousPalette(
+  baseColor: string,
+  options: AdobeHarmonyOptions
+): string[] {
+  const { 
+    rule = 'analogous', 
+    count = 5,
+    padding = 10 
+  } = options;
+  
+  // Ensure baseColor is in correct format
+  if (!baseColor.startsWith('#')) {
+    baseColor = '#' + baseColor;
+  }
+  
+  // Handle each harmony rule
+  switch (rule) {
+    case 'analogous':
+      return generateAdobeAnalogousPalette(baseColor, count, padding);
+    case 'monochromatic':
+      return generateAdobeMonochromaticPalette(baseColor, count);
+    case 'triad':
+      return generateAdobeTriadPalette(baseColor, count);
+    case 'complementary':
+      return generateAdobeComplementaryPalette(baseColor, count);
+    case 'tetrad':
+      return generateAdobeTetradPalette(baseColor, count);
+    case 'compound':
+      return generateAdobeCompoundPalette(baseColor, count);
+    case 'shades':
+      return generateAdobeShadesPalette(baseColor, count);
+    default:
+      return generateAdobeAnalogousPalette(baseColor, count, padding);
+  }
+}
+
+/**
+ * Generate analogous color palette
+ * Colors adjacent to each other on the color wheel
+ */
+function generateAdobeAnalogousPalette(baseColor: string, count: number, padding: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const hsl = tc.toHsl();
+  const step = padding; // Degrees between colors
+  
+  const result = [baseColor];
+  
+  for (let i = 1; i <= Math.floor(count / 2); i++) {
+    // Left color (counter-clockwise)
+    const leftHue = (hsl.h - step * i + 360) % 360;
+    const leftColor = tinycolorLib({ h: leftHue, s: hsl.s, l: hsl.l }).toHexString();
+    result.unshift(leftColor);
+    
+    // Right color (clockwise)
+    if (result.length < count) {
+      const rightHue = (hsl.h + step * i) % 360;
+      const rightColor = tinycolorLib({ h: rightHue, s: hsl.s, l: hsl.l }).toHexString();
+      result.push(rightColor);
+    }
+  }
+  
+  return result.slice(0, count);
+}
+
+/**
+ * Generate monochromatic color palette
+ * Various shades and tints of a single hue
+ */
+function generateAdobeMonochromaticPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const result = [baseColor];
+  
+  // Generate lighter shades first
+  for (let i = 1; i <= Math.floor(count / 2); i++) {
+    const amount = 10 * i;
+    const lightColor = tc.clone().lighten(amount).toHexString();
+    result.push(lightColor);
+  }
+  
+  // Then add darker shades
+  for (let i = 1; i <= count - result.length; i++) {
+    const amount = 10 * i;
+    const darkColor = tc.clone().darken(amount).toHexString();
+    result.unshift(darkColor);
+  }
+  
+  return result.slice(0, count);
+}
+
+/**
+ * Generate triad color palette
+ * Three colors equally spaced around the color wheel
+ */
+function generateAdobeTriadPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const hsl = tc.toHsl();
+  
+  // Create the triad
+  const colors = [
+    baseColor,
+    tinycolorLib({ h: (hsl.h + 120) % 360, s: hsl.s, l: hsl.l }).toHexString(),
+    tinycolorLib({ h: (hsl.h + 240) % 360, s: hsl.s, l: hsl.l }).toHexString()
+  ];
+  
+  // If we need more colors, add variations
+  if (count > 3) {
+    // Add a lighter version of the first color
+    const lighter = tc.clone().lighten(10).toHexString();
+    colors.push(lighter);
+  }
+  
+  if (count > 4) {
+    // Add a lighter version of the second color
+    const second = tinycolorLib(colors[1]);
+    const lighter = second.lighten(10).toHexString();
+    colors.push(lighter);
+  }
+  
+  return colors.slice(0, count);
+}
+
+/**
+ * Generate complementary color palette
+ * Base color and its opposite on the color wheel
+ */
+function generateAdobeComplementaryPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const hsl = tc.toHsl();
+  
+  // Create the complementary pair
+  const colors = [
+    baseColor,
+    tinycolorLib({ h: (hsl.h + 180) % 360, s: hsl.s, l: hsl.l }).toHexString()
+  ];
+  
+  // If we need more colors, add variations
+  if (count > 2) {
+    // Add a slightly different hue of the base color
+    const newHue = (hsl.h + 30) % 360;
+    const color = tinycolorLib({ h: newHue, s: hsl.s, l: hsl.l }).toHexString();
+    colors.push(color);
+  }
+  
+  if (count > 3) {
+    // Add a slightly different hue of the complement
+    const newHue = (hsl.h + 210) % 360;
+    const color = tinycolorLib({ h: newHue, s: hsl.s, l: hsl.l }).toHexString();
+    colors.push(color);
+  }
+  
+  if (count > 4) {
+    // Add one more variation
+    const newHue = (hsl.h - 30 + 360) % 360;
+    const color = tinycolorLib({ h: newHue, s: hsl.s, l: hsl.l }).toHexString();
+    colors.push(color);
+  }
+  
+  return colors.slice(0, count);
+}
+
+/**
+ * Generate tetrad color palette
+ * Four colors arranged in two complementary pairs
+ */
+function generateAdobeTetradPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const hsl = tc.toHsl();
+  
+  // Create the tetrad
+  const colors = [
+    baseColor,
+    tinycolorLib({ h: (hsl.h + 90) % 360, s: hsl.s, l: hsl.l }).toHexString(),
+    tinycolorLib({ h: (hsl.h + 180) % 360, s: hsl.s, l: hsl.l }).toHexString(),
+    tinycolorLib({ h: (hsl.h + 270) % 360, s: hsl.s, l: hsl.l }).toHexString()
+  ];
+  
+  // If we need more colors, add a variation
+  if (count > 4) {
+    const lighter = tc.clone().lighten(10).toHexString();
+    colors.push(lighter);
+  }
+  
+  return colors.slice(0, count);
+}
+
+/**
+ * Generate compound color palette
+ * Base color plus colors from compound harmony (also called split-complementary)
+ */
+function generateAdobeCompoundPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const hsl = tc.toHsl();
+  
+  // Create the compound harmony
+  const colors = [
+    baseColor,
+    tinycolorLib({ h: (hsl.h + 150) % 360, s: hsl.s, l: hsl.l }).toHexString(),
+    tinycolorLib({ h: (hsl.h + 210) % 360, s: hsl.s, l: hsl.l }).toHexString()
+  ];
+  
+  // If we need more colors, add variations
+  if (count > 3) {
+    // Add a variation of the base color with different saturation
+    const baseSat = Math.max(0.3, Math.min(1, hsl.s - 0.2));
+    const color = tinycolorLib({ h: hsl.h, s: baseSat, l: hsl.l }).toHexString();
+    colors.push(color);
+  }
+  
+  if (count > 4) {
+    // Add a variation with different lightness
+    const baseLight = Math.max(0.2, Math.min(0.8, hsl.l + 0.2));
+    const color = tinycolorLib({ h: hsl.h, s: hsl.s, l: baseLight }).toHexString();
+    colors.push(color);
+  }
+  
+  return colors.slice(0, count);
+}
+
+/**
+ * Generate shades palette
+ * Various shades of the same color
+ */
+function generateAdobeShadesPalette(baseColor: string, count: number): string[] {
+  const tc = tinycolorLib(baseColor);
+  const result = [baseColor];
+  
+  // Calculate step size for a smooth gradient
+  const step = 100 / (count + 1);
+  
+  // Generate varying shades
+  for (let i = 1; i < count; i++) {
+    const amount = i * step;
+    
+    // Alternate between lightening and darkening
+    let color;
+    if (i % 2 === 0) {
+      color = tc.clone().lighten(amount).toHexString();
+    } else {
+      color = tc.clone().darken(amount).toHexString();
+    }
+      
+    result.push(color);
+  }
+  
+  return result;
+}
+
+/**
+ * Apply Adobe-style adjustments to improve color harmonies
+ * Makes subtle changes to improve the visual appeal of a color set
+ */
+export function enhanceColorHarmony(colors: string[]): string[] {
+  return colors.map(color => {
+    const tc = tinycolorLib(color);
+    const hsl = tc.toHsl();
+    
+    // Apply subtle adjustments:
+    // 1. Keep saturation in a pleasing range
+    const adjustedS = Math.min(Math.max(0.4, hsl.s), 0.9);
+    
+    // 2. Avoid colors that are too dark or too light
+    const adjustedL = Math.min(Math.max(0.25, hsl.l), 0.85);
+    
+    const adjusted = tinycolorLib({ h: hsl.h, s: adjustedS, l: adjustedL });
+    return adjusted.toHexString();
+  });
+}
+
+/**
+ * Generates a gradient between two colors
+ */
+export function generateColorGradient(
+  startColor: string,
+  endColor: string,
+  steps: number
+): string[] {
+  const start = tinycolorLib(startColor);
+  const end = tinycolorLib(endColor);
+  
+  const result = [startColor];
+  
+  for (let i = 1; i < steps - 1; i++) {
+    const mix = i / (steps - 1);
+    const mixed = tinycolorLib.mix(start, end, mix * 100);
+    result.push(mixed.toHexString());
+  }
+  
+  result.push(endColor);
+  return result;
 } 

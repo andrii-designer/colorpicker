@@ -15,6 +15,10 @@ import {
 
 import { analyzeColorPalette } from './utils/colorAnalysisNew';
 import { ACCURATE_COLOR_DATA } from './utils/simplifiedColorData';
+import { 
+  extractEnhancedColorsFromImage,
+  extractAggressiveColors 
+} from './utils/imageColorExtraction';
 
 // Import utilities as namespaces
 import * as colorUtilsModule from './utils/colorUtils';
@@ -58,10 +62,14 @@ export function regenerateWithLockedColors(
 export const colorUtils = colorUtilsModule;
 export const adobeColorHarmony = adobeColorHarmonyModule;
 
-// Re-export specific functions and types
+// Export types and constants
+export type { Color };
+export type { ColorAnalysis } from './utils/colorAnalysisNew';
+
+// Export all functions and data
 export {
   analyzeColorPalette,
-  ACCURATE_COLOR_DATA
-};
-
-export type { Color }; 
+  ACCURATE_COLOR_DATA,
+  extractEnhancedColorsFromImage,
+  extractAggressiveColors
+}; 
