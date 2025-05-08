@@ -2,14 +2,15 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove, FiArrowLeft, FiDownload } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
 import ColorDisplay from '../components/ColorPalette/ColorDisplay';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import { HexColorPicker } from 'react-colorful';
 import { createPortal } from 'react-dom';
@@ -168,13 +169,19 @@ const SortableColorItem = ({
   color, 
   index,
   onColorClick,
-  onEditClick
+  onEditClick,
+  isFirst,
+  isLast,
+  isDragging
 }: {
   id: string;
   color: string;
   index: number;
   onColorClick: (color: string) => void;
   onEditClick: (color: string, index: number, event: React.MouseEvent) => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  isDragging?: boolean;
 }) => {
   const {
     attributes,
@@ -182,33 +189,59 @@ const SortableColorItem = ({
     setNodeRef,
     transform,
     transition,
-    isDragging
-  } = useSortable({ id });
+  } = useSortable({ 
+    id,
+    animateLayoutChanges: () => false // Disable dnd-kit's layout animations
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 999 : 1,
-    opacity: isDragging ? 0.7 : 1,
+    transition: isDragging ? transition : undefined, // Only apply transition during drag, not on drop
   };
   
   const isDark = tinycolor(color).isDark();
 
   return (
-    <motion.div 
+    <div
       ref={setNodeRef}
-      style={{
-        ...style,
-        backgroundColor: color
-      }}
-      className="h-32 flex items-end justify-between p-5 cursor-pointer relative rounded-xl"
+      style={style}
+      className={`flex-grow flex items-end justify-between p-4 cursor-pointer hover:opacity-95 relative ${
+        isFirst ? 'rounded-t-[16px]' : 
+        isLast ? 'rounded-b-[16px]' : 
+        'rounded-none'
+      } ${isDragging ? 'z-10' : 'z-0'}`}
       onClick={() => onColorClick(color)}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
       {...attributes}
     >
-      <span className={`font-mono text-sm ${isDark ? 'text-white' : 'text-black'}`} style={{
+      <motion.div 
+        layout={isDragging}
+        initial={false}
+        style={{
+          backgroundColor: color,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: -1,
+          boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : 'none',
+        }}
+        animate={{ 
+          scale: isDragging ? 1.02 : 1,
+        }}
+        transition={{ 
+          type: "spring",
+          bounce: 0.2,
+          duration: 0.3,
+        }}
+        className={`${
+          isFirst ? 'rounded-t-[16px]' : 
+          isLast ? 'rounded-b-[16px]' : 
+          'rounded-none'
+        }`}
+      />
+
+      <span className={`font-mono text-sm ${isDark ? 'text-white' : 'text-black'} relative z-10`} style={{
         fontFamily: 'Inter, monospace',
         fontSize: '14px',
         fontWeight: 500
@@ -216,7 +249,7 @@ const SortableColorItem = ({
         {color.toUpperCase()}
       </span>
       
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 relative z-10">
         {/* Edit button */}
         <button
           onClick={(e) => onEditClick(color, index, e)}
@@ -242,13 +275,13 @@ const SortableColorItem = ({
         {/* Drag handle */}
         <button
           {...listeners}
-          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors cursor-grab active:cursor-grabbing`}
+          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           title="Drag to reorder"
         >
           <FiMove className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -312,12 +345,36 @@ const ColorPickerModal = ({
   
   const getModalStyle = () => {
     if (anchorPosition) {
+      // Calculate viewport-relative positions
+      const viewportHeight = window.innerHeight;
+      const topPosition = anchorPosition.y;
+      
+      // Check if there's enough space below
+      const modalHeight = 350; // Approximate height of the modal
+      const spaceBelow = viewportHeight - topPosition;
+      
+      // If not enough space below, position above
+      if (spaceBelow < modalHeight + 20) {
+        return {
+          position: 'fixed', // Use fixed instead of absolute
+          left: `${anchorPosition.x}px`,
+          bottom: `${viewportHeight - topPosition + 10}px`, // Position above the button
+          transform: 'translateX(-50%)',
+          zIndex: 100,
+          maxHeight: `${topPosition - 20}px`, // Limit height to available space
+          overflowY: 'auto' // Add scroll to the modal itself if needed
+        } as React.CSSProperties;
+      }
+      
+      // Default position below
       return {
-        position: 'absolute',
+        position: 'fixed', // Use fixed instead of absolute
         left: `${anchorPosition.x}px`,
-        top: `${anchorPosition.y}px`,
-        transform: 'translate(-50%, 10px)',
-        zIndex: 100
+        top: `${topPosition + 10}px`,
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+        maxHeight: `${spaceBelow - 20}px`, // Limit height to available space
+        overflowY: 'auto' // Add scroll to the modal itself if needed
       } as React.CSSProperties;
     }
     return {};
@@ -326,7 +383,7 @@ const ColorPickerModal = ({
   return typeof document !== 'undefined' ? createPortal(
     <div 
       ref={modalRef}
-      className="bg-white rounded-lg shadow-xl p-4 w-[300px]"
+      className="bg-white rounded-lg shadow-xl p-4 w-[300px] pointer-events-auto"
       style={getModalStyle()}
     >
       <div className="mb-4">
@@ -366,7 +423,6 @@ export default function Home() {
   const [randomScore, setRandomScore] = useState<number>(0);
   const [showAdviceChat, setShowAdviceChat] = useState<boolean>(true);
   const [adviceMessages, setAdviceMessages] = useState<AdviceMessage[]>([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   
   // State for drag and drop
   const [colorIds, setColorIds] = useState<string[]>([]);
@@ -382,10 +438,18 @@ export default function Home() {
   // Maintain a boolean to track if initialization has happened
   const hasInitializedRef = useRef(false);
   
+  // For drag animation
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  
   // Sensors for drag and drop
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 }
+    }),
+    useSensor(KeyboardSensor, { 
+      coordinateGetter: sortableKeyboardCoordinates
+    })
   );
   
   // Create a directly managed history
@@ -445,13 +509,6 @@ export default function Home() {
     
     console.log("Initial palette generated and history initialized");
   }, []);
-  
-  // Scroll to bottom of chat when new messages are added
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [adviceMessages]);
   
   // Handle key press for generating new palette
   useEffect(() => {
@@ -523,45 +580,71 @@ export default function Home() {
   // Add a new advice message only when explicitly requested through the Ask for Advice button
   // instead of whenever randomColorAdvice changes
   const handleAskForAdvice = () => {
-    if ((window as any).__latestAnalysis) {
-      // Get the advice and score
-      const advice = (window as any).__latestAnalysis.advice;
-      const score = (window as any).__latestAnalysis.score;
-      
-      // Update state
-      setRandomColorAdvice(advice);
-      setRandomScore(score);
-      
-      // Create and add the new message
-      const newMessage: AdviceMessage = {
-        id: Date.now().toString(),
-        text: advice,
-        score: score,
-        icon: <FiMessageSquare className="h-5 w-5" />
-      };
-      
-      setAdviceMessages(prev => [...prev, newMessage]);
-      
-      // Clear stored analysis after using it
-      (window as any).__latestAnalysis = null;
-    } else {
-      // If no stored analysis, generate one now
-      const analysis = analyzeColorPalette(randomColors);
-      
-      // Update state
-      setRandomColorAdvice(analysis.advice);
-      setRandomScore(analysis.score);
-      
-      // Create and add the new message
-      const newMessage: AdviceMessage = {
-        id: Date.now().toString(),
-        text: analysis.advice,
-        score: analysis.score,
-        icon: <FiMessageSquare className="h-5 w-5" />
-      };
-      
-      setAdviceMessages(prev => [...prev, newMessage]);
+    // Get all buttons to find the Ask Bobby button
+    const buttons = document.querySelectorAll('button');
+    let askBobbyButton: HTMLButtonElement | null = null;
+    
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].textContent?.includes('Ask Bobby')) {
+        askBobbyButton = buttons[i] as HTMLButtonElement;
+        break;
+      }
     }
+    
+    // Disable button if found
+    if (askBobbyButton) askBobbyButton.disabled = true;
+    
+    // Use a timeout to ensure state updates don't cause layout shifts
+    setTimeout(() => {
+      try {
+        if ((window as any).__latestAnalysis) {
+          // Get the advice and score
+          const advice = (window as any).__latestAnalysis.advice;
+          const score = (window as any).__latestAnalysis.score;
+          
+          // Update state in a batched update to prevent multiple renders
+          setRandomColorAdvice(advice);
+          setRandomScore(score);
+          
+          // Create and add the new message
+          const newMessage: AdviceMessage = {
+            id: Date.now().toString(),
+            text: advice,
+            score: score,
+            icon: <FiMessageSquare className="h-5 w-5" />
+          };
+          
+          setAdviceMessages(prev => [...prev, newMessage]);
+          
+          // Clear stored analysis after using it
+          (window as any).__latestAnalysis = null;
+        } else {
+          // If no stored analysis, generate one now
+          const analysis = analyzeColorPalette(randomColors);
+          
+          // Update state in a batched update
+          setRandomColorAdvice(analysis.advice);
+          setRandomScore(analysis.score);
+          
+          // Create and add the new message
+          const newMessage: AdviceMessage = {
+            id: Date.now().toString(),
+            text: analysis.advice,
+            score: analysis.score,
+            icon: <FiMessageSquare className="h-5 w-5" />
+          };
+          
+          setAdviceMessages(prev => [...prev, newMessage]);
+        }
+      } finally {
+        // Re-enable button after a short delay
+        setTimeout(() => {
+          if (askBobbyButton) {
+            askBobbyButton.disabled = false;
+          }
+        }, 500);
+      }
+    }, 0);
   };
   
   // Function to handle color click - copy to clipboard
@@ -635,6 +718,23 @@ export default function Home() {
     setCurrentEditingIndex(-1);
   };
   
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = event.active.id as string;
+    setActiveId(id);
+  };
+  
+  // Handle drag over for visual feedback
+  const handleDragOver = (event: DragOverEvent) => {
+    if (event.over) {
+      const overId = event.over.id as string;
+      const overIdx = colorIds.indexOf(overId);
+      setOverIndex(overIdx);
+    } else {
+      setOverIndex(null);
+    }
+  };
+  
   // Handle drag end for reordering colors
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -647,7 +747,7 @@ export default function Home() {
         // Create the new color array with the reordered colors
         const newColors = arrayMove(randomColors, activeIndex, overIndex);
         
-        // Update the UI
+        // Immediately update UI without animation
         setRandomColors(newColors);
         
         // Add to history
@@ -662,10 +762,12 @@ export default function Home() {
           advice: analysis.advice,
           score: analysis.score
         };
-        
-        console.log(`Reordered colors, now at history position ${newHistory.length - 1}`);
       }
     }
+    
+    // Immediately reset state
+    setActiveId(null);
+    setOverIndex(null);
   };
   
   const handleUndo = () => {
@@ -702,20 +804,17 @@ export default function Home() {
   
   // Render the new UI
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
       {/* Header with max width - remove border-b and set padding to 16px */}
-      <header className="py-0 bg-white">
+      <header className="py-0 bg-white flex-shrink-0">
         <div 
-          className="mx-auto flex items-center justify-between" 
+          className="w-full flex items-center justify-between" 
           style={{
-            width: '1440px',
             height: '80px',
-            padding: '16px',
-            flexShrink: 0,
             background: '#FFF'
           }}
         >
-          <div className="flex items-center justify-start">
+          <div className="flex items-center justify-start ml-4">
             <Logo />
           </div>
           
@@ -727,8 +826,9 @@ export default function Home() {
             <div 
               className="flex items-center" 
               style={{
-                width: '289px',
-                justifyContent: 'space-between'
+                width: '306px',
+                justifyContent: 'space-between',
+                marginRight: '16px'
               }}
             >
               <button 
@@ -788,40 +888,56 @@ export default function Home() {
       </header>
       
       {/* Main content - remove toolbar and adjust spacing */}
-      <div className="max-w-[1440px] mx-auto px-4">
-        <main className="flex gap-4">
-          {/* Color palette section - Takes up most of the space (1086px from Figma) */}
-          <div className="w-[1086px] flex flex-col">
-            {/* Remove Undo/Redo controls since they're now in the chat panel */}
-            
+      <div className="w-full flex-1 flex flex-col"
+        style={{
+          maxWidth: '100%',
+          overflow: 'hidden',
+          height: 'calc(100vh - 80px)', // Subtract header height to ensure consistent sizing
+          background: '#FFFFFF',
+          border: 'none'
+        }}>
+        <main className="flex flex-1 pb-4 overflow-hidden h-full" style={{ border: 'none' }}>
+          {/* Color palette section - Takes full height with top margin */}
+          <div className="flex-1 ml-4 overflow-hidden flex">
             {/* DnD Context for drag and drop functionality */}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              modifiers={[restrictToVerticalAxis]}
             >
               <SortableContext
-                items={randomColors.map((_, i) => colorIds[i] || `color-${i}`)}
+                items={colorIds.slice(0, randomColors.length)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="grid grid-cols-1 gap-4">
-                  {randomColors.map((color, index) => (
-                    <SortableColorItem
-                      key={colorIds[index] || `color-${index}`}
-                      id={colorIds[index] || `color-${index}`}
-                      color={color}
-                      index={index}
-                      onColorClick={handleColorClick}
-                      onEditClick={handleEditClick}
-                    />
-                  ))}
+                <div className="grid grid-cols-1 auto-rows-fr overflow-hidden w-full h-full">
+                  {randomColors.map((color, index) => {
+                    const itemId = colorIds[index] || `color-${index}`;
+                    const isBeingDragged = activeId === itemId;
+                    
+                    return (
+                      <SortableColorItem
+                        key={itemId}
+                        id={itemId}
+                        color={color}
+                        index={index}
+                        onColorClick={handleColorClick}
+                        onEditClick={handleEditClick}
+                        isFirst={index === 0}
+                        isLast={index === randomColors.length - 1}
+                        isDragging={isBeingDragged}
+                      />
+                    );
+                  })}
                 </div>
               </SortableContext>
             </DndContext>
           </div>
           
-          {/* Chat panel - Fixed width on the right with 16px gap */}
-          <div className="w-[322px]">
+          {/* Chat panel - Fixed width (338px) on the right */}
+          <div className="w-[338px] flex-shrink-0 h-full overflow-hidden relative" style={{ border: 'none' }}>
             <ChatPanel
               messages={adviceMessages}
               onAskForAdvice={handleAskForAdvice}
@@ -836,12 +952,14 @@ export default function Home() {
       {/* Keep all the modals and notifications */}
       {colorPickerVisible && (
         createPortal(
-          <ColorPickerModal
-            color={currentEditingColor}
-            onClose={handleCloseColorPicker}
-            onChange={handleColorChange}
-            anchorPosition={colorPickerPosition}
-          />,
+          <div className="fixed inset-0 z-50 pointer-events-none">
+            <ColorPickerModal
+              color={currentEditingColor}
+              onClose={handleCloseColorPicker}
+              onChange={handleColorChange}
+              anchorPosition={colorPickerPosition}
+            />
+          </div>,
           document.body
         )
       )}
