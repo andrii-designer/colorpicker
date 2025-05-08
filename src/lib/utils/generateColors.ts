@@ -1,6 +1,8 @@
 import { ColorEntry } from './colorDatabase';
 import { ACCURATE_COLOR_DATA } from './fixedAccurateColorData';
+// Import tinycolor as any type to avoid type errors
 import tinycolor from 'tinycolor2';
+const tinycolorLib: any = tinycolor;
 
 export interface Color {
   hex: string;
@@ -243,7 +245,7 @@ function findNearestNamedColor(color: Color, colorData: ColorEntry[]): ColorEntr
  * Convert a hex color to a Color object
  */
 const hexToColor = (hex: string, name?: string): Color => {
-  const tc = tinycolor(hex);
+  const tc = tinycolorLib(hex);
   const rgb = tc.toRgb();
   const hsl = tc.toHsl();
   
@@ -256,13 +258,19 @@ const hexToColor = (hex: string, name?: string): Color => {
 };
 
 /**
- * Get a color with adjusted luminance
+ * Gets a shade of the given color
+ * @param color Base color in hex format
+ * @param shade Shade value (-10 to 10)
+ * @returns Hex color string for the shade
  */
 const getShade = (color: string, shade: number): string => {
-  const tc = tinycolor(color);
+  // Use TinyColor to get lighter or darker shade
+  const tc = tinycolorLib(color);
   if (shade > 0) {
+    // TinyColor's lighten method
     return tc.lighten(shade * 10).toString();
   } else {
+    // TinyColor's darken method
     return tc.darken(Math.abs(shade) * 10).toString();
   }
 };
@@ -272,17 +280,17 @@ const getShade = (color: string, shade: number): string => {
  */
 const generateMonochromaticPalette = (baseColor: string, count = 5): string[] => {
   const result = [baseColor];
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   
   // Generate darker shades
   for (let i = 1; i < Math.ceil(count / 2); i++) {
-    const dark = tinycolor(baseColor).darken(i * 10);
+    const dark = tinycolorLib(baseColor).darken(i * 10);
     result.unshift(dark.toHexString());
   }
   
   // Generate lighter tints
   for (let i = 1; i <= Math.floor(count / 2); i++) {
-    const light = tinycolor(baseColor).lighten(i * 10);
+    const light = tinycolorLib(baseColor).lighten(i * 10);
     result.push(light.toHexString());
   }
   
@@ -295,22 +303,22 @@ const generateMonochromaticPalette = (baseColor: string, count = 5): string[] =>
  */
 const generateComplementaryPalette = (baseColor: string, count = 5): string[] => {
   const result = [baseColor];
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   const complement = tc.clone().spin(180).toHexString();
   
   result.push(complement);
   
   // Add variations
   if (count > 2) {
-    result.push(tinycolor(baseColor).lighten(10).toHexString());
+    result.push(tinycolorLib(baseColor).lighten(10).toHexString());
   }
   
   if (count > 3) {
-    result.push(tinycolor(complement).lighten(10).toHexString());
+    result.push(tinycolorLib(complement).lighten(10).toHexString());
   }
   
   if (count > 4) {
-    result.push(tinycolor(baseColor).darken(10).toHexString());
+    result.push(tinycolorLib(baseColor).darken(10).toHexString());
   }
   
   return result;
@@ -321,7 +329,7 @@ const generateComplementaryPalette = (baseColor: string, count = 5): string[] =>
  */
 const generateAnalogousPalette = (baseColor: string, count = 5): string[] => {
   const result = [baseColor];
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   
   // Generate colors on both sides of the base color on the color wheel
   const step = 30;
@@ -344,7 +352,7 @@ const generateAnalogousPalette = (baseColor: string, count = 5): string[] => {
  * Generate a triadic palette
  */
 const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   
   // Create three colors 120 degrees apart
   const color1 = baseColor;
@@ -355,11 +363,11 @@ const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
   
   // Add variations if needed
   if (count > 3) {
-    result.push(tinycolor(color1).lighten(10).toHexString());
+    result.push(tinycolorLib(color1).lighten(10).toHexString());
   }
   
   if (count > 4) {
-    result.push(tinycolor(color2).lighten(10).toHexString());
+    result.push(tinycolorLib(color2).lighten(10).toHexString());
   }
   
   return result;
@@ -369,7 +377,7 @@ const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
  * Generate a tetradic palette
  */
 const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   
   // Create four colors 90 degrees apart
   const color1 = baseColor;
@@ -381,7 +389,7 @@ const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
   
   // Add variations if needed
   if (count > 4) {
-    result.push(tinycolor(color1).lighten(10).toHexString());
+    result.push(tinycolorLib(color1).lighten(10).toHexString());
   }
   
   return result;
@@ -391,7 +399,7 @@ const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
  * Generate a split complementary palette
  */
 const generateSplitComplementaryPalette = (baseColor: string, count = 5): string[] => {
-  const tc = tinycolor(baseColor);
+  const tc = tinycolorLib(baseColor);
   
   // Create a base color and two colors adjacent to its complement
   const color1 = baseColor;
@@ -402,11 +410,11 @@ const generateSplitComplementaryPalette = (baseColor: string, count = 5): string
   
   // Add variations if needed
   if (count > 3) {
-    result.push(tinycolor(color1).lighten(10).toHexString());
+    result.push(tinycolorLib(color1).lighten(10).toHexString());
   }
   
   if (count > 4) {
-    result.push(tinycolor(color2).lighten(10).toHexString());
+    result.push(tinycolorLib(color2).lighten(10).toHexString());
   }
   
   return result;
@@ -417,7 +425,7 @@ const generateSplitComplementaryPalette = (baseColor: string, count = 5): string
  */
 const applyAdobeHarmonization = (colors: string[]): string[] => {
   return colors.map(color => {
-    const tc = tinycolor(color);
+    const tc = tinycolorLib(color);
     const hsl = tc.toHsl();
     
     // Adjust saturation and lightness for more harmonious colors
@@ -425,7 +433,7 @@ const applyAdobeHarmonization = (colors: string[]): string[] => {
     const adjustedL = Math.min(Math.max(hsl.l * 0.85 + 0.15, 0.3), 0.8);
     
     // Return the adjusted color
-    return tinycolor({h: hsl.h, s: adjustedS, l: adjustedL}).toHexString();
+    return tinycolorLib({h: hsl.h, s: adjustedS, l: adjustedL}).toHexString();
   });
 };
 
@@ -443,7 +451,7 @@ export function generateColorPalette(
   } = options;
 
   // Convert base color
-  const base = tinycolor(baseColor);
+  const base = tinycolorLib(baseColor);
   const baseHsl = base.toHsl();
   
   // Create result array with base color
@@ -509,13 +517,13 @@ export function generateColorPalette(
     }
     
     // Create new color
-    const newColor = tinycolor({h, s, l});
+    const newColor = tinycolorLib({h, s, l});
     
     // Apply harmonization if requested
     let finalColor = newColor;
     if (useAdobeAlgorithm) {
       const adjustedHsl = newColor.toHsl();
-      const harmonizedColor = tinycolor({
+      const harmonizedColor = tinycolorLib({
         h: adjustedHsl.h,
         s: Math.min(Math.max(adjustedHsl.s * 0.9 + 0.1, 0.3), 0.8),
         l: Math.min(Math.max(adjustedHsl.l * 0.85 + 0.15, 0.3), 0.8)
