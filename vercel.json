@@ -1,5 +1,18 @@
 {
-  "buildCommand": "node vercel-build.js",
-  "installCommand": "npm install",
-  "framework": "nextjs"
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next",
+      "config": {
+        "buildCommand": "node ultimate-fix.js"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
 } 
