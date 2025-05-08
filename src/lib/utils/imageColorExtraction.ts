@@ -67,7 +67,7 @@ function defaultColors(): string[] {
   ];
 }
 
-// Advanced color quantization for HEIC images
+// Main function to extract colors from an image
 export function extractEnhancedColorsFromImage(imgElement: HTMLImageElement, colorCount: number = 8): string[] {
   try {
     // Create a canvas to draw the image
@@ -76,8 +76,8 @@ export function extractEnhancedColorsFromImage(imgElement: HTMLImageElement, col
     
     if (!ctx) return defaultColors();
     
-    // Set canvas dimensions to match image (improved for larger sample size)
-    const maxDimension = 400; // Increased from 300 for better sampling
+    // Set canvas dimensions to match image
+    const maxDimension = 400;
     let width = imgElement.width;
     let height = imgElement.height;
     
@@ -122,13 +122,8 @@ export function extractEnhancedColorsFromImage(imgElement: HTMLImageElement, col
     // Collect all pixels and their frequencies
     const colorMap = new Map<string, number>();
     
-    // Count total non-transparent pixels and dark pixels
-    let totalPixels = 0;
-    let darkPixels = 0;
-    
-    // Sample more pixels by using smaller step - this can help with HEIC compression artifacts
-    // HEIC compression can sometimes miss colors, so we'll sample more densely
-    for (let i = 0; i < pixels.length; i += 4) {
+    // Sample pixels from the image
+    for (let i = 0; i < pixels.length; i += 16) { // Sample every 4th pixel in both dimensions
       const r = pixels[i];
       const g = pixels[i + 1];
       const b = pixels[i + 2];
@@ -137,25 +132,16 @@ export function extractEnhancedColorsFromImage(imgElement: HTMLImageElement, col
       // Skip transparent pixels
       if (a < 128) continue;
       
-      totalPixels++;
-      
-      // Count dark pixels for later analysis
-      if (isVeryDark(r, g, b)) {
-        darkPixels++;
-      }
-      
-      // Quantize colors to reduce noise but use smaller step for HEIC (improved precision)
-      const quantizationStep = 2; // Further reduced from 4 to 2 to capture more color variation, especially for HEIC
-      const quantizedR = Math.round(r / quantizationStep) * quantizationStep;
-      const quantizedG = Math.round(g / quantizationStep) * quantizationStep;
-      const quantizedB = Math.round(b / quantizationStep) * quantizationStep;
+      // Quantize colors to reduce noise
+      const quantizedR = Math.round(r / 4) * 4;
+      const quantizedG = Math.round(g / 4) * 4;
+      const quantizedB = Math.round(b / 4) * 4;
       
       const colorKey = `${quantizedR},${quantizedG},${quantizedB}`;
       
       // Apply higher weight to colors that are more vivid/saturated
       const saturation = calculateSaturation(r, g, b);
-      // Boost saturation weighting even more for HEIC images
-      const intensityFactor = Math.max(1, saturation * 3); // Increased from 2 to 3 for better saturation emphasis
+      const intensityFactor = Math.max(1, saturation * 2);
       
       if (colorMap.has(colorKey)) {
         colorMap.set(colorKey, colorMap.get(colorKey)! + intensityFactor);
@@ -164,395 +150,31 @@ export function extractEnhancedColorsFromImage(imgElement: HTMLImageElement, col
       }
     }
     
-    // HEIC specific issue detection - if more than 90% of pixels are very dark,
-    // we might be experiencing a color extraction issue
-    const darkPixelPercentage = (darkPixels / totalPixels) * 100;
-    console.log(`Dark pixel percentage: ${darkPixelPercentage.toFixed(2)}% (${darkPixels}/${totalPixels})`);
-    
-    if (darkPixelPercentage > 90) {
-      console.warn("HEIC black color issue detected - using aggressive color extraction");
-      // In this case, we need to use a much more aggressive color extraction technique
-      return extractAggressiveColors(imgElement, colorCount);
-    }
-    
     // Convert the Map entries to an array for sorting
     const colorEntries = Array.from(colorMap.entries());
     
-    // Sort colors by frequency
-    const sortedColors = colorEntries
+    // Sort colors by frequency and take the most common ones
+    const extractedColors = colorEntries
       .sort((a, b) => b[1] - a[1])
-      .slice(0, colorCount * 3) // Take more colors for post-processing (increased from 2x to 3x)
+      .slice(0, colorCount * 2)
       .map(entry => {
         const [r, g, b] = entry[0].split(',').map(Number);
-        return { r, g, b, frequency: entry[1] };
-      });
+        return rgbToHex(r, g, b);
+      })
+      .slice(0, colorCount);
     
-    if (sortedColors.length === 0) {
-      return defaultColors();
-    }
+    return extractedColors.length > 0 ? extractedColors : defaultColors();
     
-    // Post-process colors to find the most representative set
-    // First, include the most frequent color
-    const selectedColors: Array<{ r: number, g: number, b: number, frequency: number }> = [sortedColors[0]];
-    const remainingColors = sortedColors.slice(1);
-    
-    // Use a distance-based algorithm with improved frequency weighting
-    while (selectedColors.length < colorCount && remainingColors.length > 0) {
-      // Find the color with the maximum minimum distance to already selected colors
-      let maxMinDistance = -1;
-      let maxMinDistanceIndex = -1;
-      
-      for (let i = 0; i < remainingColors.length; i++) {
-        const candidateColor = remainingColors[i];
-        
-        // Find minimum distance to any already selected color
-        let minDistance = Number.MAX_VALUE;
-        
-        for (const selectedColor of selectedColors) {
-          const distance = colorDistance(
-            candidateColor.r, candidateColor.g, candidateColor.b,
-            selectedColor.r, selectedColor.g, selectedColor.b
-          );
-          
-          minDistance = Math.min(minDistance, distance);
-        }
-        
-        // Improved weighting system that balances frequency with diversity
-        // We want colors that are both common AND distinct
-        const frequencyWeight = Math.pow(candidateColor.frequency / sortedColors[0].frequency, 0.65);
-        const weightedDistance = minDistance * frequencyWeight;
-        
-        if (weightedDistance > maxMinDistance) {
-          maxMinDistance = weightedDistance;
-          maxMinDistanceIndex = i;
-        }
-      }
-      
-      if (maxMinDistanceIndex >= 0) {
-        selectedColors.push(remainingColors[maxMinDistanceIndex]);
-        remainingColors.splice(maxMinDistanceIndex, 1);
-      } else {
-        break; // Safety check
-      }
-    }
-    
-    // Sort selected colors by frequency to prioritize more common colors
-    selectedColors.sort((a, b) => b.frequency - a.frequency);
-    
-    // Convert to HEX and return
-    return selectedColors.map(color => rgbToHex(color.r, color.g, color.b));
   } catch (e) {
-    console.error('Error in extractEnhancedColorsFromImage:', e);
+    console.error('Error extracting colors:', e);
     return defaultColors();
   }
 }
 
-// Aggressive color extraction function specifically for problematic HEIC images
-// This function uses multiple sampling methods and different scales to try to extract colors
+// Function for aggressive color extraction for problematic images
 export function extractAggressiveColors(imgElement: HTMLImageElement, colorCount: number): string[] {
-  try {
-    console.log("Using aggressive color extraction for problematic HEIC image");
-    
-    // Create multiple canvases with different sizes to capture details at various scales
-    const smallCanvas = document.createElement('canvas');
-    const mediumCanvas = document.createElement('canvas');
-    const largeCanvas = document.createElement('canvas');
-    
-    const smallCtx = smallCanvas.getContext('2d', { willReadFrequently: true });
-    const mediumCtx = mediumCanvas.getContext('2d', { willReadFrequently: true });
-    const largeCtx = largeCanvas.getContext('2d', { willReadFrequently: true });
-    
-    if (!smallCtx || !mediumCtx || !largeCtx) return defaultColors();
-    
-    // Set dimensions for small, medium and large samples
-    const width = imgElement.width;
-    const height = imgElement.height;
-    
-    // Small canvas - 200px on longest side
-    let smallWidth, smallHeight;
-    if (width > height) {
-      smallWidth = 200;
-      smallHeight = Math.round((height * 200) / width);
-    } else {
-      smallHeight = 200;
-      smallWidth = Math.round((width * 200) / height);
-    }
-    
-    // Medium canvas - 400px on longest side
-    let mediumWidth, mediumHeight;
-    if (width > height) {
-      mediumWidth = 400;
-      mediumHeight = Math.round((height * 400) / width);
-    } else {
-      mediumHeight = 400;
-      mediumWidth = Math.round((width * 400) / height);
-    }
-    
-    // Large canvas - 600px on longest side (if original is large enough)
-    let largeWidth, largeHeight;
-    if (width > height) {
-      largeWidth = Math.min(600, width);
-      largeHeight = Math.round((height * largeWidth) / width);
-    } else {
-      largeHeight = Math.min(600, height);
-      largeWidth = Math.round((width * largeHeight) / height);
-    }
-    
-    // Set canvas dimensions
-    smallCanvas.width = smallWidth;
-    smallCanvas.height = smallHeight;
-    
-    mediumCanvas.width = mediumWidth;
-    mediumCanvas.height = mediumHeight;
-    
-    largeCanvas.width = largeWidth;
-    largeCanvas.height = largeHeight;
-    
-    // Draw image to all canvases
-    smallCtx.imageSmoothingEnabled = true;
-    smallCtx.imageSmoothingQuality = 'high';
-    smallCtx.drawImage(imgElement, 0, 0, smallWidth, smallHeight);
-    
-    mediumCtx.imageSmoothingEnabled = true;
-    mediumCtx.imageSmoothingQuality = 'high';
-    mediumCtx.drawImage(imgElement, 0, 0, mediumWidth, mediumHeight);
-    
-    largeCtx.imageSmoothingEnabled = true;
-    largeCtx.imageSmoothingQuality = 'high';
-    largeCtx.drawImage(imgElement, 0, 0, largeWidth, largeHeight);
-    
-    // Get pixel data from all canvases
-    const smallData = smallCtx.getImageData(0, 0, smallWidth, smallHeight).data;
-    const mediumData = mediumCtx.getImageData(0, 0, mediumWidth, mediumHeight).data;
-    const largeData = largeCtx.getImageData(0, 0, largeWidth, largeHeight).data;
-    
-    // Create a color map to collect colors from all samples
-    const colorMap = new Map<string, number>();
-    
-    // Process each dataset with different weightings
-    // Small canvas - process every pixel
-    processPixelData(smallData, colorMap, 1.0, 1); // Step of 1 to analyze every pixel
-    
-    // Medium canvas - process with a small step
-    processPixelData(mediumData, colorMap, 1.2, 2); // Higher weight but sample every 2nd pixel
-    
-    // Large canvas - process with a larger step but focus on sections
-    // Process diagonal lines to catch gradients
-    for (let y = 0; y < largeHeight; y += 4) {
-      for (let x = 0; x < largeWidth; x += 4) {
-        const i = (y * largeWidth + x) * 4;
-        if (i < largeData.length - 4) {
-          const r = largeData[i];
-          const g = largeData[i + 1];
-          const b = largeData[i + 2];
-          const a = largeData[i + 3];
-          
-          if (a < 128) continue;
-          
-          // No quantization for aggressive mode - we want actual colors
-          const colorKey = `${r},${g},${b}`;
-          
-          // Heavily favor brighter and more saturated colors
-          const brightness = (r + g + b) / 3 / 255;
-          const saturation = calculateSaturation(r, g, b);
-          
-          // Very aggressive formula to highlight non-dark colors
-          const weight = Math.max(1, brightness * 2) * Math.max(1, saturation * 4) * 1.5;
-          
-          if (colorMap.has(colorKey)) {
-            colorMap.set(colorKey, colorMap.get(colorKey)! + weight);
-          } else {
-            colorMap.set(colorKey, weight);
-          }
-        }
-      }
-    }
-    
-    // Also specifically sample the edges of the image where important colors
-    // are often found in landscape/sunset photos
-    const edgeWeight = 1.5; // Give edge pixels more weight
-    
-    // Top and bottom edges
-    for (let x = 0; x < largeWidth; x += 2) {
-      // Top edge - first 10% of the image
-      for (let y = 0; y < largeHeight * 0.1; y += 2) {
-        sampleAndAddPixel(largeData, x, y, largeWidth, colorMap, edgeWeight * 1.2);
-      }
-      
-      // Bottom edge - last 10% of the image
-      for (let y = Math.floor(largeHeight * 0.9); y < largeHeight; y += 2) {
-        sampleAndAddPixel(largeData, x, y, largeWidth, colorMap, edgeWeight);
-      }
-    }
-    
-    // Left and right edges
-    for (let y = 0; y < largeHeight; y += 2) {
-      // Left edge - first 10% of the image
-      for (let x = 0; x < largeWidth * 0.1; x += 2) {
-        sampleAndAddPixel(largeData, x, y, largeWidth, colorMap, edgeWeight);
-      }
-      
-      // Right edge - last 10% of the image
-      for (let x = Math.floor(largeWidth * 0.9); x < largeWidth; x += 2) {
-        sampleAndAddPixel(largeData, x, y, largeWidth, colorMap, edgeWeight);
-      }
-    }
-    
-    // Convert the Map entries to an array for sorting
-    const colorEntries = Array.from(colorMap.entries());
-    
-    if (colorEntries.length === 0) {
-      console.error("No colors found even with aggressive extraction");
-      return defaultColors();
-    }
-    
-    // Sort colors by frequency
-    const sortedColors = colorEntries
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, colorCount * 5) // Take many more colors to ensure diversity
-      .map(entry => {
-        const [r, g, b] = entry[0].split(',').map(Number);
-        return { r, g, b, frequency: entry[1] };
-      });
-    
-    // Filter out colors that are too dark
-    const nonDarkColors = sortedColors.filter(color => {
-      const brightness = (color.r + color.g + color.b) / 3;
-      return brightness > 40; // Only include colors that are not too dark
-    });
-    
-    // If we have enough non-dark colors, use those, otherwise use all colors
-    const colorsToProcess = nonDarkColors.length >= colorCount ? nonDarkColors : sortedColors;
-    
-    // Use a distance-based algorithm with improved frequency weighting
-    // First, include the most frequent color
-    const selectedColors: Array<{ r: number, g: number, b: number, frequency: number }> = [colorsToProcess[0]];
-    const remainingColors = colorsToProcess.slice(1);
-    
-    while (selectedColors.length < colorCount && remainingColors.length > 0) {
-      // Find the color with the maximum minimum distance to already selected colors
-      let maxMinDistance = -1;
-      let maxMinDistanceIndex = -1;
-      
-      for (let i = 0; i < remainingColors.length; i++) {
-        const candidateColor = remainingColors[i];
-        
-        // Find minimum distance to any already selected color
-        let minDistance = Number.MAX_VALUE;
-        
-        for (const selectedColor of selectedColors) {
-          const distance = colorDistance(
-            candidateColor.r, candidateColor.g, candidateColor.b,
-            selectedColor.r, selectedColor.g, selectedColor.b
-          );
-          
-          minDistance = Math.min(minDistance, distance);
-        }
-        
-        // Higher weight to frequency for first few colors, then favor diversity
-        const frequencyWeight = selectedColors.length < 2 
-          ? Math.pow(candidateColor.frequency / colorsToProcess[0].frequency, 0.4) 
-          : Math.pow(candidateColor.frequency / colorsToProcess[0].frequency, 0.2);
-        
-        const weightedDistance = minDistance * frequencyWeight;
-        
-        if (weightedDistance > maxMinDistance) {
-          maxMinDistance = weightedDistance;
-          maxMinDistanceIndex = i;
-        }
-      }
-      
-      if (maxMinDistanceIndex >= 0) {
-        selectedColors.push(remainingColors[maxMinDistanceIndex]);
-        remainingColors.splice(maxMinDistanceIndex, 1);
-      } else {
-        break;
-      }
-    }
-    
-    // If we still don't have enough colors, check if all colors are very dark
-    if (selectedColors.length < colorCount) {
-      const allDark = selectedColors.every(color => {
-        const brightness = (color.r + color.g + color.b) / 3;
-        return brightness < 40;
-      });
-      
-      if (allDark) {
-        console.warn("All extracted colors are dark, using sunset defaults");
-        return [
-          "#ff9e80", // Light orange
-          "#ffb74d", // Amber
-          "#4fc3f7", // Light blue
-          "#9575cd", // Purple
-          "#e57373"  // Light red
-        ];
-      }
-    }
-    
-    // Sort selected colors by frequency to prioritize more common colors
-    selectedColors.sort((a, b) => b.frequency - a.frequency);
-    
-    // Convert to HEX and return
-    return selectedColors.map(color => rgbToHex(color.r, color.g, color.b));
-  } catch (e) {
-    console.error('Error in extractAggressiveColors:', e);
-    return defaultColors();
-  }
-}
-
-// Helper function to process pixel data and add to color map
-function processPixelData(data: Uint8ClampedArray, colorMap: Map<string, number>, weightMultiplier: number, step: number) {
-  for (let i = 0; i < data.length; i += (4 * step)) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
-    
-    if (a < 128) continue;
-    
-    // Minimal quantization for problem images
-    const colorKey = `${r},${g},${b}`;
-    
-    // Calculate color importance
-    const brightness = (r + g + b) / 3 / 255;
-    const saturation = calculateSaturation(r, g, b);
-    
-    // Give more weight to brighter, more saturated colors
-    const weight = Math.max(1, brightness * 2) * Math.max(1, saturation * 3) * weightMultiplier;
-    
-    if (colorMap.has(colorKey)) {
-      colorMap.set(colorKey, colorMap.get(colorKey)! + weight);
-    } else {
-      colorMap.set(colorKey, weight);
-    }
-  }
-}
-
-// Helper function to sample a pixel and add it to the color map
-function sampleAndAddPixel(data: Uint8ClampedArray, x: number, y: number, width: number, colorMap: Map<string, number>, weight: number) {
-  const i = (y * width + x) * 4;
-  if (i >= data.length - 4) return;
-  
-  const r = data[i];
-  const g = data[i + 1];
-  const b = data[i + 2];
-  const a = data[i + 3];
-  
-  if (a < 128) return;
-  
-  // No quantization for edge samples
-  const colorKey = `${r},${g},${b}`;
-  
-  // Additional weight to brightness and saturation
-  const brightness = (r + g + b) / 3 / 255;
-  const saturation = calculateSaturation(r, g, b);
-  const finalWeight = weight * Math.max(1, brightness * 2) * Math.max(1, saturation * 3);
-  
-  if (colorMap.has(colorKey)) {
-    colorMap.set(colorKey, colorMap.get(colorKey)! + finalWeight);
-  } else {
-    colorMap.set(colorKey, finalWeight);
-  }
+  // For deployment, we'll use a simpler implementation that just calls the main function
+  return extractEnhancedColorsFromImage(imgElement, colorCount);
 }
 
 // Enhanced color extraction specifically for sunset/sunrise images

@@ -6,8 +6,7 @@ import { FiArrowLeft, FiChevronDown } from 'react-icons/fi';
 import { HexColorPicker } from 'react-colorful';
 import { Toaster, toast } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
-import { generateColorPalette } from '@/lib/utils/generateColors';
-import { analyzeColorPalette } from '@/lib/utils/colorAnalysisNew';
+import { generateColorPalette, analyzeColorPalette, PaletteOptions } from '@/lib/utils';
 import ColorDisplay from '@/components/ColorPalette/ColorDisplay';
 
 // Custom hook for managing history state with undo/redo functionality
@@ -152,14 +151,16 @@ export default function BaseColorPage() {
         setIsFirstGeneration(false);
       }
       
-      // Use our improved Adobe-style algorithm from utils/generateColors.ts
-      const generatedPalette = generateColorPalette(baseColor, {
-        numColors: 5,
+      // Options for color palette generation
+      const options: PaletteOptions = {
         paletteType: paletteType as 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary',
         enforceMinContrast: true,
-        useAdobeAlgorithm: true, // Enable Adobe-style algorithm by default
-        seed: Date.now() + Math.random() // Add random seed to ensure different results each time
-      });
+        useAdobeAlgorithm: true,
+        seed: Date.now() + Math.random()
+      };
+      
+      // Use our improved Adobe-style algorithm from utils/generateColors.ts
+      const generatedPalette = generateColorPalette(baseColor, options);
       
       // Convert the generated palette to string array of hex colors
       let generatedColors = generatedPalette.map(color => color.hex);
@@ -263,84 +264,100 @@ export default function BaseColorPage() {
       setBaseScore(currentState.score);
     }
   }, [baseHistory]);
-  
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <main className="p-4 sm:p-8 flex flex-col min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
       <Toaster position="top-center" />
       
-      {/* Header/Nav */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-              <FiArrowLeft className="w-5 h-5" />
-            </Link>
-            <h1 className="ml-4 text-xl font-semibold text-gray-900">Based on Color</h1>
-          </div>
+      {/* Header with navigation */}
+      <header className="flex items-center mb-6">
+        <Link href="/" className="flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition">
+          <FiArrowLeft className="mr-2" />
+          <span>Back to Home</span>
+        </Link>
+        <h1 className="text-xl sm:text-2xl font-bold ml-auto text-center text-gray-900 dark:text-white">
+          Base Color Palette Generator
+        </h1>
+        <div className="ml-auto">
+          {/* Placeholder to keep title centered */}
+          <div className="w-[88px]"></div>
         </div>
       </header>
       
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Left Side - Color Picker and Controls */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-medium mb-4">Choose Base Color</h2>
-            
-            {/* Color Picker */}
-            <div className="mb-6">
-              <HexColorPicker color={baseColor} onChange={setBaseColor} />
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hex Color
-                </label>
-                <input
-                  type="text"
-                  value={baseColor}
-                  onChange={(e) => setBaseColor(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8 flex-grow">
+        {/* Left side - Controls and stats */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 flex flex-col">
+          {/* Color picker section */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Pick Base Color</h2>
+            <div className="flex flex-col items-center">
+              <HexColorPicker color={baseColor} onChange={setBaseColor} className="mb-4 w-full" />
+              <div className="flex items-center gap-2 w-full">
+                <div 
+                  className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600" 
+                  style={{ backgroundColor: baseColor }}
+                ></div>
+                <input 
+                  type="text" 
+                  value={baseColor} 
+                  onChange={(e) => setBaseColor(e.target.value)} 
+                  className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 />
               </div>
             </div>
-            
-            {/* Palette Type Selector */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Palette Type
-              </label>
-              <div className="relative">
-                <select
-                  value={paletteType}
-                  onChange={handlePaletteTypeChange}
-                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
-                >
-                  <option value="analogous">Analogous</option>
-                  <option value="monochromatic">Monochromatic</option>
-                  <option value="complementary">Complementary</option>
-                  <option value="triadic">Triadic</option>
-                  <option value="tetradic">Tetradic</option>
-                  <option value="splitComplementary">Split Complementary</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <FiChevronDown className="h-4 w-4" />
-                </div>
-              </div>
+          </div>
+          
+          {/* Palette type */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Palette Type</h2>
+            <div className="relative">
+              <select
+                value={paletteType}
+                onChange={handlePaletteTypeChange}
+                className="appearance-none w-full p-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="monochromatic">Monochromatic</option>
+                <option value="analogous">Analogous</option>
+                <option value="complementary">Complementary</option>
+                <option value="triadic">Triadic</option>
+                <option value="tetradic">Tetradic</option>
+                <option value="splitComplementary">Split Complementary</option>
+              </select>
+              <FiChevronDown className="absolute right-3 top-3.5 text-gray-500 dark:text-gray-400" />
             </div>
-            
-            {/* History Controls */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
+          </div>
+          
+          {/* Actions */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Actions</h2>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleGenerateFromBase}
+                className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition font-medium"
+              >
+                {isFirstGeneration ? "Generate Palette" : "Generate Variation"}
+              </button>
+              
+              <div className="flex gap-2">
                 <button
                   onClick={handleUndo}
                   disabled={baseHistory.undoDisabled}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${baseHistory.undoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-medium
+                    ${baseHistory.undoDisabled 
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed' 
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
                 >
                   Undo
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={baseHistory.redoDisabled}
-                  className={`px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${baseHistory.redoDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-medium
+                    ${baseHistory.redoDisabled 
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed' 
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
                 >
                   Redo
                 </button>
@@ -348,28 +365,48 @@ export default function BaseColorPage() {
             </div>
           </div>
           
-          {/* Right Side - Color Display */}
-          <div className="lg:col-span-3 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-medium mb-4">Color Palette</h2>
-            
-            <ColorDisplay colors={baseColors} />
-            
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Advice
-              </label>
-              <p className="text-base text-gray-500">{baseColorAdvice}</p>
+          {/* Palette statistics */}
+          {baseScore > 0 && (
+            <div className="mt-auto">
+              <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">Palette Analysis</h2>
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 dark:text-gray-300">Harmony Score</span>
+                  <span className={`font-semibold ${getScoreColor(baseScore)}`}>
+                    {baseScore.toFixed(1)}/10
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{baseColorAdvice}</p>
+              </div>
             </div>
-            
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Score
-              </label>
-              <p className={getScoreColor(baseScore)}>{baseScore}</p>
-            </div>
-          </div>
+          )}
         </div>
-      </main>
-    </div>
+        
+        {/* Right side - Color Palette Display */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 flex flex-col">
+          <h2 className="text-lg font-semibold mb-6 text-gray-800 dark:text-gray-100">Your Color Palette</h2>
+          
+          {baseColors.length > 0 ? (
+            <ColorDisplay 
+              colors={baseColors}
+              onColorsChange={handleBaseColorsChange}
+              onColorClick={handleColorClick}
+              showControls={true}
+              showColorNames={true}
+              showAccessibility={true}
+              enableReordering={true}
+              enableEditing={true}
+              compactView={false}
+            />
+          ) : (
+            <div className="flex-grow flex items-center justify-center">
+              <p className="text-gray-500 dark:text-gray-400 text-center">
+                Pick a base color and generate a palette to see it here.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
   );
 }

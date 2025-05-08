@@ -3,25 +3,23 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 // Adding inline uuid function instead of requiring the package
-// import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
-
-// Simple implementation of UUID v4
+// Simple implementation of UUID v4 instead of requiring the package
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
+import crypto from 'crypto';
 
 // Add type declaration for heic-convert
-declare module 'heic-convert' {
-  export default function(options: {
-    buffer: Buffer;
-    format: 'JPEG' | 'PNG';
-    quality?: number;
-  }): Promise<Buffer>;
-}
+// Instead of using module.exports, declare a variable for the types
+const heicConvertTypes = {
+  heic2png: Function,
+  heic2jpg: Function
+};
+
+// Use heicConvertTypes when needed instead of module.exports
 
 // Dynamic import for heic-convert (since it uses node:worker_threads)
 let heicConvert: any = null;
@@ -39,8 +37,14 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB max file size
 // Function to initialize heicConvert once
 async function getHeicConverter() {
   if (!heicConvert) {
-    const module = await import('heic-convert');
-    heicConvert = module.default;
+    try {
+      // Import as a standard ES module
+      const importedModule = await import('heic-convert');
+      heicConvert = importedModule.default;
+    } catch (error) {
+      console.error('Error importing heic-convert:', error);
+      throw new Error('Failed to load heic-convert module');
+    }
   }
   return heicConvert;
 }

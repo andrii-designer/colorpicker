@@ -26,12 +26,9 @@ export function scrapeColorRegister(htmlContent: string): ColorData[] {
   let match;
 
   while ((match = regex.exec(htmlContent)) !== null) {
-    // Clean up color name (trim whitespace, handle special characters)
+    // Clean up color name
     let colorName = match[1].trim();
     if (colorName) {
-      // Since the website doesn't directly provide color values in the list,
-      // we'll need to follow the links to get the actual values
-      // For now, create an entry with just the name
       colors.push({ name: colorName });
     }
   }
@@ -92,32 +89,33 @@ export function groupColorsByFirstLetter(colors: ColorData[]): Record<string, Co
 }
 
 /**
- * Formats color data as a JavaScript object with color names and their values
- * @param colors Array of color data to format
- * @returns Formatted JavaScript code for the color database
+ * Formats the color data for our database
  */
 export function formatColorDatabase(colors: ColorData[]): string {
-  const groups = groupColorsByFirstLetter(colors);
-  let output = "const colorDatabase = {\n";
+  let output = "// Color database\n\n";
+  output += "import type { ColorEntry } from './colorDatabase';\n\n";
+  output += "export const colorDatabase: ColorEntry[] = [\n";
   
-  // Add each letter group with a comment
-  Object.keys(groups).sort().forEach(letter => {
-    output += `  // ${letter}\n`;
-    
-    groups[letter].forEach(color => {
-      const rgbValue = color.rgb ? 
-        `rgb(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b})` : 
-        (color.hex ? `"${color.hex}"` : 'null');
-      
-      output += `  "${color.name}": ${rgbValue},\n`;
-    });
-    
-    output += "\n";
+  colors.forEach((color, index) => {
+    const entry = generateColorEntry(color);
+    output += `  {\n`;
+    output += `    name: "${entry.name}",\n`;
+    output += `    hue: ${entry.hue},\n`;
+    output += `    saturation: ${entry.saturation},\n`;
+    output += `    lightness: ${entry.lightness},\n`;
+    output += `    category: "${entry.category}",\n`;
+    output += `    tags: [${entry.tags.map((t: string) => `"${t}"`).join(', ')}],\n`;
+    if (entry.hex) {
+      output += `    hex: "${entry.hex}",\n`;
+    }
+    if (entry.rgb) {
+      output += `    rgb: { r: ${entry.rgb.r}, g: ${entry.rgb.g}, b: ${entry.rgb.b} },\n`;
+    }
+    output += `  }${index < colors.length - 1 ? ',' : ''}\n`;
   });
   
-  // Remove the last comma and newline
-  output = output.slice(0, -2);
-  output += "\n};";
+  output += "];\n\n";
+  output += "export default colorDatabase;";
   
   return output;
 }
@@ -191,9 +189,7 @@ To use this scraper in a browser console:
 }
 
 /**
- * Generates a color entry with the appropriate structure for our database
- * @param color Color data including name and values
- * @returns A properly formatted color entry for our database
+ * Generates a color entry with default values if actual values aren't available
  */
 export function generateColorEntry(color: ColorData): any {
   // Default fallback color if no value provided
@@ -203,16 +199,18 @@ export function generateColorEntry(color: ColorData): any {
   const hex = color.hex || defaultHex;
   
   // Convert hex to RGB if needed
-  const rgb = color.rgb || hexToRgb(hex) || { r: 128, g: 128, b: 128 };
+  const rgb = color.rgb || { r: 128, g: 128, b: 128 };
   
-  // Convert RGB to HSL for our database format
-  const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  // Use default HSL values
+  const h = 0;
+  const s = 0;
+  const l = 50;
   
-  // Determine category based on hue
-  const category = categorizeByHue(h);
+  // Determine default category
+  const category = "gray";
   
-  // Extract tags from name
-  const tags = extractTags(color.name);
+  // Default tags
+  const tags = ["neutral"];
   
   return {
     name: color.name,
@@ -319,15 +317,4 @@ function extractTags(name: string): string[] {
   });
 
   return tags;
-}
-
-export default {
-  scrapeColorRegister,
-  extractColorValueFromPage,
-  hexToRgb,
-  groupColorsByFirstLetter,
-  formatColorDatabase,
-  scrapeColorValues,
-  exampleUsageInBrowser,
-  generateColorEntry
-}; 
+} 

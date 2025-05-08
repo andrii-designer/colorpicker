@@ -131,8 +131,17 @@ export default function FromImagePage() {
     try {
       setImageUrl(imageData);
       
-      // Extract colors from the image
-      const extractedColors = await extractEnhancedColorsFromImage(imageData, 5);
+      // Create an HTMLImageElement from the image data string
+      const img = new Image();
+      img.src = imageData;
+      
+      // Wait for the image to load before extracting colors
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+      
+      // Extract colors from the image using the loaded HTMLImageElement
+      const extractedColors = await extractEnhancedColorsFromImage(img, 5);
       
       // If we already have colors, save current state to history
       if (imageColors.length > 0) {

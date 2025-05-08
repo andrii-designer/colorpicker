@@ -1,5 +1,5 @@
 import { ColorEntry } from './colorDatabase';
-import { ACCURATE_COLOR_DATA } from './fixedAccurateColorData';
+import { ACCURATE_COLOR_DATA } from './simplifiedColorData';
 // Import tinycolor as any type to avoid type errors
 import tinycolor from 'tinycolor2';
 const tinycolorLib: any = tinycolor;

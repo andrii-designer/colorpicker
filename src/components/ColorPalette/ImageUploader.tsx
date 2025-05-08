@@ -171,7 +171,7 @@ export default function ImageUploader({ onImageSelect }: ImageUploaderProps) {
                 <p>Try these alternatives:</p>
                 <ul className="list-disc list-inside text-xs mt-1">
                   <li>Use a smaller HEIC file</li>
-                  <li>Convert to JPEG with your device's photo app first</li>
+                  <li>Convert to JPEG with your device&apos;s photo app first</li>
                   <li>Try a PNG or JPG image instead</li>
                 </ul>
               </div>

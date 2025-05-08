@@ -13,349 +13,264 @@ interface ColorDisplayProps {
   colors: string[];
   onColorSelect?: (color: string) => void;
   onColorsChange?: (colors: string[]) => void;
+  onColorClick?: (color: string) => void;
   allowEdit?: boolean;
   maxColors?: number;
   randomSection?: boolean;
+  showControls?: boolean;
+  showColorNames?: boolean;
+  showAccessibility?: boolean;
+  enableReordering?: boolean;
+  enableEditing?: boolean;
+  compactView?: boolean;
 }
 
-// Custom hook to track base color with proper update behavior
+// Helper hook to manage the base color
 function useBaseColor(colors: string[], randomSection: boolean) {
-  const [baseColor, setBaseColor] = useState<string | null>(null);
-  const isInitialized = useRef(false);
-  const initialBaseColor = useRef<string | null>(null);
-
-  // On first render, set the base color to the first color
+  const initialBaseColor = useRef<string>('');
+  const [baseColor, setBaseColor] = useState<string>('');
+  
+  // Set the initial base color on first render
   useEffect(() => {
-    if (!isInitialized.current && colors.length > 0) {
-      console.log('Initializing base color to:', colors[0]);
-      setBaseColor(colors[0]);
+    if (colors.length > 0 && !initialBaseColor.current) {
       initialBaseColor.current = colors[0];
-      isInitialized.current = true;
+      setBaseColor(colors[0]);
     }
   }, [colors]);
-
-  // If the parent component changes the base color directly (through input),
-  // update our base color tracking
-  useEffect(() => {
-    if (!randomSection && isInitialized.current && colors.length > 0) {
-      // If our base color is not in the array anymore, the parent must have changed it
-      if (baseColor && !colors.includes(baseColor)) {
-        console.log('Base color changed by parent from:', baseColor, 'to:', colors[0]);
-        setBaseColor(colors[0]);
-        initialBaseColor.current = colors[0];
-      }
-    }
-  }, [colors, baseColor, randomSection]);
-
+  
   return [baseColor, setBaseColor, initialBaseColor] as const;
 }
 
-// Sortable color item component
-const SortableColorItem = ({ 
+// Color Picker Modal Component
+function ColorPickerModal({ 
+  color, 
+  onChange, 
+  onClose 
+}: { 
+  color: string, 
+  onChange: (color: string) => void, 
+  onClose: () => void 
+}) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  
+  // Close when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
+  
+  // Handle ESC key
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+  
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div 
+        ref={modalRef}
+        className="bg-white p-4 rounded-lg shadow-xl flex flex-col items-center"
+      >
+        <p className="mb-2 text-gray-700 font-medium">Select a color</p>
+        <HexColorPicker color={color} onChange={onChange} />
+        <div className="mt-4 flex w-full">
+          <input 
+            type="text" 
+            value={color} 
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 border rounded px-2 py-1 text-sm"
+          />
+          <button 
+            onClick={onClose}
+            className="ml-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Sortable Color Item Component
+function SortableColorItem({ 
   id, 
   hexColor, 
-  index, 
+  index,
   totalColors,
   onColorClick,
   onDeleteClick,
   onAddBetween,
+  onCopyClick,
+  onShowPicker,
   allowEdit,
   maxColors,
   hoverIndex,
   copiedIndex,
   onMouseEnter,
-  onColorChange,
-  onShowPicker,
   setCopiedIndex,
-  onCopyClick,
-  randomSection = false,
-  isBaseColor = false
-}: {
-  id: string;
-  hexColor: string;
-  index: number;
-  totalColors: number;
-  onColorClick: (color: string) => void;
-  onDeleteClick: (e: React.MouseEvent, index: number) => void;
-  onAddBetween: (e: React.MouseEvent, index: number) => void;
-  allowEdit: boolean;
-  maxColors: number;
-  hoverIndex: number | null;
-  copiedIndex: number | null;
-  onMouseEnter: (index: number | null) => void;
-  onColorChange: (color: string) => void;
-  onShowPicker: (color: string, index: number) => void;
-  setCopiedIndex: (index: number | null) => void;
-  onCopyClick: (e: React.MouseEvent, color: string, index: number) => void;
-  randomSection?: boolean;
-  isBaseColor?: boolean;
-}) => {
+  onColorChange,
+  randomSection,
+  isBaseColor
+}: { 
+  id: string, 
+  hexColor: string, 
+  index: number,
+  totalColors: number,
+  onColorClick: (color: string) => void,
+  onDeleteClick: (index: number) => void,
+  onAddBetween: (index: number) => void,
+  onCopyClick: (e: React.MouseEvent, color: string, index: number) => void,
+  onShowPicker: (color: string, index: number) => void,
+  allowEdit: boolean,
+  maxColors: number,
+  hoverIndex: number | null,
+  copiedIndex: number | null,
+  onMouseEnter: (index: number | null) => void,
+  setCopiedIndex: (index: number | null) => void,
+  onColorChange: (color: string) => void,
+  randomSection: boolean,
+  isBaseColor: boolean
+}) {
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
-    isDragging
+    isDragging,
   } = useSortable({ id });
-
+  
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 999 : 1,
-    opacity: isDragging ? 0.7 : 1,
-    cursor: isDragging ? 'grabbing' : 'auto'
-  };
-
-  // Validate color format
-  const validateColor = (color: string): string => {
-    // Check if it's a valid color
-    const tc = tinycolor(color);
-    // Use .isValid() and convert to hex format
-    if (tc.isValid()) {
-      return tc.toHexString().toUpperCase();
-    }
-    // Return fallback color if invalid
-    return "#CCCCCC";
+    zIndex: isDragging ? 100 : 1,
+    backgroundColor: hexColor,
+    opacity: isDragging ? 0.8 : 1,
   };
   
-  const validatedColor = validateColor(hexColor);
+  const textColor = useMemo(() => {
+    const color = tinycolor(hexColor);
+    return color.isDark() ? 'white' : 'black';
+  }, [hexColor]);
   
-  const isHighlight = hoverIndex === index || copiedIndex === index;
-  
-  const handleOpenColorPicker = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onShowPicker(validatedColor, index);
-  };
+  const isHovering = hoverIndex === index;
   
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
-      className={`relative group w-full bg-white rounded-lg overflow-hidden shadow-sm transition-all
-        ${isDragging ? 'shadow-xl scale-105' : ''}
-        ${isHighlight ? 'ring-2 ring-blue-400 shadow-md' : 'hover:shadow-md transition-shadow'}
-        ${isBaseColor ? 'border-2 border-yellow-400' : ''}`}
+      className={`relative rounded-md p-3 h-20 flex flex-col justify-between cursor-pointer group ${isDragging ? 'shadow-xl' : 'shadow'}`}
+      onClick={() => onColorClick(hexColor)}
       onMouseEnter={() => onMouseEnter(index)}
       onMouseLeave={() => onMouseEnter(null)}
       {...attributes}
+      {...listeners}
     >
-      <div 
-        className="h-36 w-full cursor-pointer"
-        style={{ backgroundColor: validatedColor }}
-        onClick={() => onColorClick(validatedColor)}
-      >
-        {/* Base color indicator - Only show on index 0 and if it's actually marked as base color */}
-        {isBaseColor && index === 0 && (
-          <div className="absolute top-2 left-2 bg-yellow-400 text-xs text-black px-2 py-1 rounded-md shadow-sm font-medium">
-            Base Color
-          </div>
-        )}
+      <div className="flex justify-between items-start">
+        <div className="bg-white bg-opacity-90 rounded px-1 text-xs text-gray-800">
+          {hexColor}
+        </div>
         
-        {/* Add drag handle button for all colors */}
         {allowEdit && (
-          <button
-            {...listeners}
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
-                    bg-white/30 backdrop-blur-sm rounded-lg p-2.5
-                    text-gray-800 hover:bg-white/70 transition-all 
-                    opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
-            title="Drag to reorder"
-          >
-            <div className="flex flex-col items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-              </svg>
-              <span className="text-xs font-bold mt-1">Drag</span>
-            </div>
-          </button>
-        )}
-        
-        {/* Edit button - disabled for base color unless in randomSection */}
-        {allowEdit && (!isBaseColor || randomSection) && (
-          <button
-            onClick={handleOpenColorPicker}
-            className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm rounded-full p-1.5 
-                      text-gray-700 hover:bg-white/40 transition-all opacity-0 group-hover:opacity-100"
-            title="Edit color"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </button>
-        )}
-        
-        {/* Delete button - disabled for base color unless in randomSection */}
-        {allowEdit && totalColors > 1 && (!isBaseColor || randomSection) && (
-          <button
-            onClick={(e) => onDeleteClick(e, index)}
-            className="absolute top-2 right-8 bg-white/20 backdrop-blur-sm rounded-full p-1.5 
-                     text-red-500 hover:bg-white/40 transition-all opacity-0 group-hover:opacity-100"
-            title="Delete color"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
-        
-        {/* Add button between colors */}
-        {allowEdit && index < totalColors - 1 && totalColors < maxColors && (
-          <button
-            onClick={(e) => onAddBetween(e, index)}
-            className="absolute bottom-2 right-2 bg-white/20 backdrop-blur-sm rounded-full p-1.5 
-                     text-blue-500 hover:bg-white/40 transition-all opacity-0 group-hover:opacity-100"
-            title="Add color between"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </button>
+          <div className={`flex space-x-1 ${isHovering ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+            {/* Copy hex button */}
+            <button
+              onClick={(e) => onCopyClick(e, hexColor, index)}
+              className="p-1 rounded bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-600 hover:text-blue-500"
+              title="Copy hex code"
+            >
+              {copiedIndex === index ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8 2a1 1 0 000 2h2a1 1 0 100-2H8z" />
+                  <path d="M3 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v6h-4.586l1.293-1.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L10.414 13H15v3a2 2 0 01-2 2H5a2 2 0 01-2-2V5zM15 11h2a1 1 0 110 2h-2v-2z" />
+                </svg>
+              )}
+            </button>
+            
+            {/* Edit color button */}
+            {!isBaseColor && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowPicker(hexColor, index);
+                }}
+                className="p-1 rounded bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-600 hover:text-blue-500"
+                title={isBaseColor ? "Can't edit base color" : "Edit color"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+              </button>
+            )}
+            
+            {/* Delete color button */}
+            {totalColors > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteClick(index);
+                }}
+                className="p-1 rounded bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-600 hover:text-red-500"
+                title="Remove color"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
       </div>
       
-      {/* Color info section */}
-      <div className="p-3 text-black">
-        <div className="flex flex-col items-center space-y-1">
-          <span className="text-xs font-mono font-medium text-gray-700 mb-0.5">{validatedColor}</span>
-          <button
-            onClick={(e) => onCopyClick(e, validatedColor, index)}
-            className={`mt-1 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors ${
-              copiedIndex === index ? 'bg-green-100 text-green-700' : 'text-gray-700'
-            }`}
-          >
-            {copiedIndex === index ? 'Copied!' : 'Copy'}
-          </button>
+      {/* Add color in-between button */}
+      {allowEdit && totalColors < maxColors && index < totalColors - 1 && isHovering && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddBetween(index);
+          }}
+          className="absolute -right-4 top-1/2 transform -translate-y-1/2 translate-x-1/2 bg-white rounded-full p-1 shadow-md hover:bg-blue-50 hover:text-blue-600 z-10"
+          title="Add color between"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
+      
+      {/* Base color indicator */}
+      {isBaseColor && (
+        <div className="absolute -top-2 -left-2 bg-white rounded-full p-1 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" />
+          </svg>
         </div>
-      </div>
+      )}
     </div>
   );
-};
-
-// Color picker modal component
-const ColorPickerModal = ({ 
-  color, 
-  onClose, 
-  onChange 
-}: { 
-  color: string, 
-  onClose: () => void, 
-  onChange: (color: string) => void 
-}) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const [hexValue, setHexValue] = useState(color.toUpperCase());
-  const [initialColor] = useState(color.toUpperCase());
-  
-  useEffect(() => {
-    setHexValue(color.toUpperCase());
-  }, [color]);
-  
-  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setHexValue(value);
-    
-    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
-      onChange(value);
-    }
-  };
-  
-  const formatHexInput = (value: string) => {
-    if (value.charAt(0) !== '#') {
-      value = '#' + value;
-    }
-    
-    value = value.slice(0, 7);
-    
-    return value;
-  };
-  
-  const handleHexBlur = () => {
-    let validHex = hexValue;
-    
-    if (!validHex.startsWith('#')) {
-      validHex = '#' + validHex;
-    }
-    
-    while (validHex.length < 7) {
-      validHex += '0';
-    }
-    
-    if (/^#[0-9A-Fa-f]{6}$/.test(validHex)) {
-      setHexValue(validHex.toUpperCase());
-      onChange(validHex);
-    } else {
-      setHexValue(color.toUpperCase());
-    }
-  };
-  
-  const handleReset = () => {
-    setHexValue(initialColor);
-    onChange(initialColor);
-  };
-  
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [onClose]);
-  
-  return createPortal(
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div 
-        ref={modalRef}
-        className="bg-white rounded-lg shadow-xl p-4 w-[420px] max-w-[95vw]"
-      >
-        <div className="relative w-full">
-          <HexColorPicker 
-            color={color} 
-            onChange={onChange} 
-            className="w-full mb-4" 
-          />
-          <div className="flex items-center mt-4 mb-3">
-            <div className="w-12 h-12 relative flex-shrink-0">
-              <div className="w-10 h-10 rounded-full absolute top-1 left-1" style={{ backgroundColor: color, border: '2px solid #e5e7eb' }}></div>
-            </div>
-          </div>
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex-1 mr-3">
-              <input 
-                type="text" 
-                className="w-full text-center p-2 border rounded font-mono text-lg"
-                value={hexValue}
-                onChange={handleHexChange}
-                onBlur={handleHexBlur}
-                maxLength={7}
-              />
-            </div>
-            <div className="flex space-x-2">
-              <button
-                className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-gray-700"
-                onClick={handleReset}
-                title="Reset to initial color"
-              >
-                Reset
-              </button>
-              <button
-                className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-gray-700"
-                onClick={onClose}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-};
+}
 
 export default function ColorDisplay({ 
   colors, 
@@ -370,6 +285,9 @@ export default function ColorDisplay({
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [baseColor, setBaseColor, initialBaseColor] = useBaseColor(colors, randomSection);
+  
+  // Track the active drag index for visual feedback
+  const [dragActiveIndex, setDragActiveIndex] = useState<number>(-1);
   
   // Color IDs for drag and drop
   const [colorIds] = useState<string[]>(() => 
@@ -408,49 +326,32 @@ export default function ColorDisplay({
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 1500);
   };
-
-  const handleDeleteColor = (e: React.MouseEvent, index: number) => {
-    e.stopPropagation();
-    
-    const currentColor = colors[index];
-    console.log('Trying to delete color:', currentColor, 'at index:', index, 'Is base color:', (!randomSection && currentColor === initialBaseColor.current));
-    
-    if (!randomSection && currentColor === initialBaseColor.current) {
-      console.log('Cannot delete base color:', currentColor);
-      toast.error("Cannot delete the base color. This is the original color you selected.");
-      return;
-    }
-    
+  
+  const handleDeleteColor = (index: number) => {
     if (onColorsChange && colors.length > 1) {
-      console.log('Deleting color at index:', index);
       const newColors = [...colors];
       newColors.splice(index, 1);
       onColorsChange(newColors);
     }
   };
   
-  const handleAddColorBetween = (e: React.MouseEvent, index: number) => {
-    e.stopPropagation();
+  const handleAddColorBetween = (index: number) => {
     if (onColorsChange && colors.length < maxColors) {
-      const color1 = colors[index].replace('#', '');
-      const color2 = colors[index + 1].replace('#', '');
+      const color1 = tinycolor(colors[index]);
+      const color2 = tinycolor(colors[index + 1]);
       
-      const r1 = parseInt(color1.substring(0, 2), 16);
-      const g1 = parseInt(color1.substring(2, 4), 16);
-      const b1 = parseInt(color1.substring(4, 6), 16);
+      const hsl1 = color1.toHsl();
+      const hsl2 = color2.toHsl();
       
-      const r2 = parseInt(color2.substring(0, 2), 16);
-      const g2 = parseInt(color2.substring(2, 4), 16);
-      const b2 = parseInt(color2.substring(4, 6), 16);
+      // Create a color in between
+      const newHue = (hsl1.h + hsl2.h) / 2;
+      const newSat = (hsl1.s + hsl2.s) / 2;
+      const newLight = (hsl1.l + hsl2.l) / 2;
       
-      const r = Math.round((r1 + r2) / 2);
-      const g = Math.round((g1 + g2) / 2);
-      const b = Math.round((b1 + b2) / 2);
-      
-      const blendedColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      const newColor = tinycolor(`hsl(${newHue}, ${newSat * 100}%, ${newLight * 100}%)`).toString();
       
       const newColors = [...colors];
-      newColors.splice(index + 1, 0, blendedColor);
+      newColors.splice(index + 1, 0, newColor);
       onColorsChange(newColors);
     }
   };
@@ -533,64 +434,36 @@ export default function ColorDisplay({
   // Handle drag start event
   const handleDragStart = (event: { active: any }) => {
     setActiveId(event.active.id);
+    // Find the index of the dragged color
+    const index = colorIds.findIndex(id => id === event.active.id);
+    if (index !== -1) setDragActiveIndex(index);
   };
 
-  // Handle drag end event for reordering colors
+  // Handle drag end event
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
     setActiveId(null);
+    setDragActiveIndex(-1);
     
-    if (!over || active.id === over.id || !onColorsChange) {
-      return;
-    }
-    
-    const oldIndex = colorIds.indexOf(active.id as string);
-    const newIndex = colorIds.indexOf(over.id as string);
-    
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-    
-    console.log(`Moving color from position ${oldIndex} to ${newIndex}`);
-    
-    // Get the original colors before movement
-    const originalColors = [...colors];
-    
-    // Move the colors according to the drag and drop
-    const newColors = arrayMove([...colors], oldIndex, newIndex);
-    
-    // For base color section (when not in random section), 
-    // ensure the base color stays at position 0
-    if (!randomSection && initialBaseColor.current) {
-      const baseColorValue = initialBaseColor.current;
+    if (over && active.id !== over.id && onColorsChange) {
+      const oldIndex = colorIds.findIndex(id => id === active.id);
+      const newIndex = colorIds.findIndex(id => id === over.id);
       
-      // If the base color was moved away from position 0, 
-      // or another color was moved to position 0
-      if (newColors[0] !== baseColorValue) {
-        // Find the base color's new position
-        const baseColorNewPosition = newColors.findIndex(color => color === baseColorValue);
-        
-        if (baseColorNewPosition !== -1) {
-          // Remove the base color from its new position
-          newColors.splice(baseColorNewPosition, 1);
-          // Insert it back at position 0
-          newColors.unshift(baseColorValue);
-          console.log('Restored base color to position 0');
-        } else {
-          // This shouldn't happen, but if the base color is somehow lost,
-          // put the original color[0] back in position 0
-          newColors[0] = originalColors[0];
-          console.log('Base color not found, restored original first color');
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Check if we're trying to move the base color in a non-random palette
+        if (!randomSection && colors[oldIndex] === initialBaseColor.current) {
+          toast.error("Can't reorder the base color in a harmony palette.");
+          return;
         }
+        
+        // Reorder the colors
+        const newColors = arrayMove(colors, oldIndex, newIndex);
+        onColorsChange(newColors);
       }
     }
-    
-    onColorsChange(newColors);
   };
 
-  // Find the active color for drag overlay
-  const dragActiveIndex = activeId ? colorIds.indexOf(activeId) : -1;
   const activeColor = dragActiveIndex !== -1 ? colors[dragActiveIndex] : null;
 
   if (!colors.length) {
@@ -660,7 +533,7 @@ export default function ColorDisplay({
                 hoverIndex={hoverIndex}
                 copiedIndex={copiedIndex}
                 onMouseEnter={setHoverIndex}
-                onColorChange={(color) => handleColorChange(color)}
+                onColorChange={handleColorChange}
                 onShowPicker={handleShowPicker}
                 setCopiedIndex={setCopiedIndex}
                 onCopyClick={handleCopyHex}

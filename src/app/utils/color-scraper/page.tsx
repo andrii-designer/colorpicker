@@ -60,8 +60,8 @@ export default function ColorScraper() {
   };
 
   const scrapeColorValues = async (colors: ColorData[]) => {
-    // For this demo, we'll limit to the first 10 colors
-    // In a real implementation, you'd want to do this server-side
+    // For this demo, we&apos;ll limit to the first 10 colors
+    // In a real implementation, you&apos;d want to do this server-side
     const maxColors = 10;
     const colorsToScrape = colors.slice(0, maxColors);
     
@@ -70,7 +70,7 @@ export default function ColorScraper() {
     for (let i = 0; i < colorsToScrape.length; i++) {
       const color = colorsToScrape[i];
       try {
-        // Get the color's page URL
+        // Get the color&apos;s page URL
         const colorName = color.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const url = `/api/proxy-color-value?color=${encodeURIComponent(colorName)}`;
         
@@ -114,7 +114,7 @@ export default function ColorScraper() {
       output += `    saturation: ${entry.saturation},\n`;
       output += `    lightness: ${entry.lightness},\n`;
       output += `    category: "${entry.category}",\n`;
-      output += `    tags: [${entry.tags.map(t => `"${t}"`).join(', ')}],\n`;
+      output += `    tags: [${entry.tags.map((t: string) => `"${t}"`).join(', ')}],\n`;
       if (entry.hex) {
         output += `    hex: "${entry.hex}",\n`;
       }
@@ -153,7 +153,7 @@ export default function ColorScraper() {
         <h1 className="text-3xl font-bold mb-4 text-gray-800">Color Register Scraper</h1>
         <p className="mb-4 text-gray-600">
           This utility scrapes all color names and their values from the official color register website and formats them
-          for use in our application's color database.
+          for use in our application&apos;s color database.
         </p>
         
         <div className="mb-6">
@@ -182,7 +182,7 @@ export default function ColorScraper() {
               </label>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Note: For a full scrape with values, it's better to use a server-side script.
+              Note: For a full scrape with values, it&apos;s better to use a server-side script.
             </p>
           </div>
           

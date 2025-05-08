@@ -2,4 +2,7 @@
 .github
 README.md
 .env.local
-node_modules 
+node_modules
+# Ignore large problematic data files
+src/lib/utils/accurateColorData.ts
+src/lib/utils/completeColorData.ts 

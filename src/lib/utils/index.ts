@@ -1,11 +1,20 @@
-// Export directly from generateColors instead of re-exporting through colorExports 
-// This should avoid any potential circular dependencies
-import { generateColorPalette, regenerateWithLockedColors } from './generateColors';
-import type { Color } from './generateColors';
-
-// Export all other color utilities from colorExports
+// Export from colorExports
 export * from './colorExports';
 
-// Make sure these are explicitly exported from here
-export { generateColorPalette, regenerateWithLockedColors };
-export type { Color }; 
+// Export type from generateColors
+export type { Color } from './generateColors';
+
+// Export modules that may be used in other parts of the application
+export * from './generateColors';
+export * from './colorAnalysisNew';
+export * from './fixedAccurateColorData';
+
+// Export the scrapeColors functions needed elsewhere
+export {
+  scrapeColorRegister,
+  formatColorDatabase,
+  generateColorEntry,
+  type ColorData
+} from './scrapeColors';
+
+// This makes imports cleaner by allowing `import { someFunction } from '@/lib/utils'` 
