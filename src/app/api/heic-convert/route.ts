@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import { v4 as uuidv4 } from 'uuid';
+// Adding inline uuid function instead of requiring the package
+// import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+
+// Simple implementation of UUID v4
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 // Add type declaration for heic-convert
 declare module 'heic-convert' {
