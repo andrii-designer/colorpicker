@@ -21,6 +21,55 @@ try {
 const tsFiles = glob.sync('src/**/*.{ts,tsx}', { ignore: 'node_modules/**' });
 console.log(`Found ${tsFiles.length} TypeScript files to convert`);
 
+// Add manual fixes for specific files that we know are problematic
+function manuallyFixProblemFiles() {
+  const problemFiles = {
+    'src/app/components/ui/ChatPanel.js': (content) => {
+      return content.replace(
+        /export function ChatPanel\(\{ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo \} \{/g,
+        'export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }) {'
+      );
+    },
+    'src/app/components/ui/Logo.js': (content) => {
+      return content.replace(
+        /export function Logo\(\{ className \} \{/g,
+        'export function Logo({ className }) {'
+      );
+    },
+    'src/app/components/ui/Navigation.js': (content) => {
+      return content.replace(
+        /export function Navigation\(\{ className, items = defaultItems \} \{/g,
+        'export function Navigation({ className, items = defaultItems }) {'
+      );
+    },
+    'src/components/ColorPalette/ColorDisplay.js': (content) => {
+      return content.replace(
+        /function useBaseColor\(colors randomSection \{/g,
+        'function useBaseColor(colors, randomSection) {'
+      );
+    },
+    'src/components/ColorPalette/ImageUploader.js': (content) => {
+      return content.replace(
+        /export default function ImageUploader\(\{ onImageSelect \} \{/g,
+        'export default function ImageUploader({ onImageSelect }) {'
+      );
+    }
+  };
+
+  Object.entries(problemFiles).forEach(([filePath, fixFn]) => {
+    if (fs.existsSync(filePath)) {
+      try {
+        console.log(`Manually fixing known issues in ${filePath}`);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const fixedContent = fixFn(content);
+        fs.writeFileSync(filePath, fixedContent);
+      } catch (error) {
+        console.error(`Error manually fixing ${filePath}:`, error);
+      }
+    }
+  });
+}
+
 // Convert each file to JavaScript
 tsFiles.forEach(tsFile => {
   try {
@@ -41,7 +90,16 @@ tsFiles.forEach(tsFile => {
       // Remove generics
       .replace(/<[A-Za-z0-9_<>|\[\]&,'"\s\(\)\.]+>/g, '')
       // Remove 'extends' clause in type parameters
-      .replace(/extends\s+[A-Za-z0-9_]+/g, '');
+      .replace(/extends\s+[A-Za-z0-9_]+/g, '')
+      // Fix parameter destructuring syntax (ensure closing parenthesis is preserved)
+      .replace(/\}\s+{/g, '}) {')
+      // Fix function parameter syntax issues
+      .replace(/(\([^)]*)\s*\)\s*{/g, '$1) {')
+      // Fix the specific case of 'colors randomSection' parameter syntax error
+      .replace(/\(colors\s+randomSection/g, '(colors, randomSection')
+      // Fix cases where closing parenthesis is missing in component props
+      .replace(/export (default |)function ([A-Za-z0-9_]+)\(\{([^}]+)\} \{/g, 'export $1function $2({$3}) {')
+      .replace(/export (const |)([A-Za-z0-9_]+) = \(\{([^}]+)\} \{/g, 'export $1$2 = ({$3}) {');
     
     // Create a JavaScript version of the file
     const jsFile = tsFile.replace(/\.(ts|tsx)$/, '.js');
@@ -60,6 +118,10 @@ tsFiles.forEach(tsFile => {
     console.error(`Error converting ${tsFile}:`, error);
   }
 });
+
+// After all conversions, apply manual fixes to known problem files
+console.log('Applying manual fixes to known problematic files...');
+manuallyFixProblemFiles();
 
 // Create a special next.config.js for JavaScript build
 console.log('Creating JavaScript build configuration...');

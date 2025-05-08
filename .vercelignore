@@ -2,6 +2,9 @@
 node_modules
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .next
 out
 README.md
@@ -11,4 +14,15 @@ README-TEMPLATE.md
 scrape-*.json
 # Ignore large problematic data files
 src/lib/utils/accurateColorData.ts
-src/lib/utils/completeColorData.ts 
+src/lib/utils/completeColorData.ts
+# Ignore converted JS files from source TS files
+src/**/*.js
+# Keep converted JavaScript files in Next.js page directories
+!src/app/api/**/*.js
+!src/app/[*]/**/*.js
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Generated TS backup
+tsconfig.json.bak 
