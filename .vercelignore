@@ -1,8 +1,14 @@
 .git
-.github
-README.md
-.env.local
 node_modules
+.env
+.env.local
+.next
+out
+README.md
+README-TEMPLATE.md
+.idea
+.vscode
+scrape-*.json
 # Ignore large problematic data files
 src/lib/utils/accurateColorData.ts
 src/lib/utils/completeColorData.ts 
