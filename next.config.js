@@ -10,6 +10,8 @@ const nextConfig = {
     
     return config;
   },
+  // Add react-icons to transpiled packages
+  transpilePackages: ['react-icons'],
   // Add any other Next.js config options here
 };
 
