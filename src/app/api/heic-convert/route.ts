@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-// Adding inline uuid function instead of requiring the package
-// import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
-// Simple implementation of UUID v4
+// Simple implementation of UUID v4 instead of requiring the package
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
