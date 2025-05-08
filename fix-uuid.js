@@ -1,65 +1,257 @@
-// This script directly modifies the source file to avoid relying on the uuid package
+// This script completely rewrites the heic-convert route file to avoid any duplication issues
 const fs = require('fs');
 const path = require('path');
 
 try {
   const filePath = path.join(__dirname, 'src', 'app', 'api', 'heic-convert', 'route.ts');
+  console.log('Creating a clean heic-convert route.ts file without duplicates...');
   
-  // Read the file
-  let content = fs.readFileSync(filePath, 'utf8');
-  
-  // Check for duplicate uuidv4 function declarations
-  const uuidFunctionCount = (content.match(/function uuidv4\(\)/g) || []).length;
-  
-  if (uuidFunctionCount > 1) {
-    console.log('Found multiple uuidv4 function declarations, cleaning up...');
-    
-    // Remove all uuidv4 function declarations and imports
-    content = content.replace(/\/\/ Simple implementation of UUID v4[^]*?function uuidv4\(\)[^]*?\}\n/g, '');
-    content = content.replace(/\/\/ Adding inline uuid function[^]*?\/\/ import[^\n]*\n/g, '');
-    content = content.replace(/import \{ v4 as uuidv4 \} from ['"]uuid['"];?\n*/g, '');
-    
-    // Add a single implementation at the top of the file
-    const uuidImpl = `// Simple implementation of UUID v4 instead of requiring the package
+  // Clean implementation with no duplicates or commented imports
+  const cleanImplementation = `import { NextRequest, NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
+
+// Simple implementation of UUID v4 instead of requiring the package
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
-`;
-    
-    // Insert after the import statements, before the first function or interface
-    const importEndIndex = content.lastIndexOf('import');
-    const importLineEndIndex = content.indexOf('\n', importEndIndex) + 1;
-    
-    content = content.slice(0, importLineEndIndex) + '\n' + uuidImpl + content.slice(importLineEndIndex);
-    
-    // Write the updated content back to the file
-    fs.writeFileSync(filePath, content, 'utf8');
-    console.log('Successfully cleaned up duplicate uuidv4 functions in route.ts');
-  } else if (content.includes("import { v4 as uuidv4 } from 'uuid';")) {
-    console.log('Fixing UUID dependency in heic-convert route.ts...');
-    
-    // Replace the import with inline implementation
-    content = content.replace(
-      "import { v4 as uuidv4 } from 'uuid';",
-      `// Simple implementation of UUID v4 instead of requiring the package
-function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}`
-    );
-    
-    // Write the updated content back to the file
-    fs.writeFileSync(filePath, content, 'utf8');
-    console.log('Successfully fixed UUID dependency in route.ts');
-  } else {
-    console.log('UUID dependency already fixed properly in route.ts');
+
+// Add type declaration for heic-convert
+declare module 'heic-convert' {
+  export default function(options: {
+    buffer: Buffer;
+    format: 'JPEG' | 'PNG';
+    quality?: number;
+  }): Promise<Buffer>;
+}
+
+// Dynamic import for heic-convert (since it uses node:worker_threads)
+let heicConvert: any = null;
+
+// Simple in-memory cache for converted images
+interface CacheEntry {
+  data: string;
+  timestamp: number;
+}
+
+const imageCache = new Map<string, CacheEntry>();
+const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB max file size
+
+// Function to initialize heicConvert once
+async function getHeicConverter() {
+  if (!heicConvert) {
+    const module = await import('heic-convert');
+    heicConvert = module.default;
   }
+  return heicConvert;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Get the form data from the request
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+    
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: \`File too large. Maximum size is \${MAX_FILE_SIZE / (1024 * 1024)}MB\` },
+        { status: 400 }
+      );
+    }
+    
+    // Check if it's a HEIC file
+    const isHeicFile = file.type === 'image/heic' || 
+                       file.name.toLowerCase().endsWith('.heic') || 
+                       file.type === 'image/heif' || 
+                       file.name.toLowerCase().endsWith('.heif');
+                       
+    if (!isHeicFile) {
+      return NextResponse.json(
+        { error: 'Not a HEIC/HEIF file' },
+        { status: 400 }
+      );
+    }
+    
+    // Convert the file to buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    if (buffer.length === 0) {
+      console.error('Received empty buffer');
+      return NextResponse.json(
+        { error: 'File buffer is empty' },
+        { status: 400 }
+      );
+    }
+    
+    // Generate a hash of the file to use as a cache key
+    const fileHash = crypto.createHash('md5').update(buffer.toString('binary')).digest('hex');
+    
+    // Check if we have this image in cache
+    if (imageCache.has(fileHash)) {
+      const cached = imageCache.get(fileHash)!;
+      
+      // Check if cache entry is still valid
+      if (Date.now() - cached.timestamp < CACHE_EXPIRY_MS) {
+        console.log(\`Cache hit for file: \${file.name}\`);
+        
+        const response = NextResponse.json({ 
+          success: true, 
+          data: cached.data,
+          originalFormat: 'heic',
+          fromCache: true
+        });
+        
+        // Set CORS headers
+        response.headers.set('Access-Control-Allow-Origin', '*');
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        
+        return response;
+      } else {
+        // Remove expired cache entry
+        imageCache.delete(fileHash);
+      }
+    }
+    
+    console.log(\`Processing HEIC file: \${file.name}, size: \${buffer.length} bytes\`);
+    
+    try {
+      // Get heic converter
+      const converter = await getHeicConverter();
+      
+      // Start conversion with optimized settings
+      const outputBuffer = await converter({
+        buffer: buffer,
+        format: 'JPEG', 
+        quality: 0.85 // Balanced quality - good for colors but faster
+      });
+      
+      if (!outputBuffer || outputBuffer.length === 0) {
+        console.error('Conversion produced empty buffer');
+        return NextResponse.json(
+          { error: 'Conversion failed - no output generated' },
+          { status: 500 }
+        );
+      }
+      
+      console.log(\`Conversion successful. Output size: \${outputBuffer.length} bytes\`);
+      
+      // Return the converted image as base64 with proper MIME type
+      const base64 = \`data:image/jpeg;base64,\${outputBuffer.toString('base64')}\`;
+      
+      // Verify the base64 is valid and not too short
+      if (base64.length < 100) {
+        console.error('Generated base64 data is too short:', base64);
+        return NextResponse.json(
+          { error: 'Conversion produced invalid data' },
+          { status: 500 }
+        );
+      }
+      
+      // Store in cache
+      imageCache.set(fileHash, {
+        data: base64,
+        timestamp: Date.now()
+      });
+      
+      // Cleanup old cache entries if cache gets too large
+      if (imageCache.size > 50) {
+        const now = Date.now();
+        Array.from(imageCache.entries()).forEach(([key, entry]) => {
+          if (now - entry.timestamp > CACHE_EXPIRY_MS) {
+            imageCache.delete(key);
+          }
+        });
+      }
+      
+      // Create response with CORS headers to ensure browser compatibility
+      const response = NextResponse.json({ 
+        success: true, 
+        data: base64,
+        originalFormat: 'heic',
+        size: outputBuffer.length
+      });
+      
+      // Set CORS headers
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      
+      return response;
+    } catch (error) {
+      console.error('Error converting HEIC to JPEG:', error);
+      
+      // Try a fallback conversion with lower quality
+      try {
+        console.log('Attempting fallback conversion with lower quality...');
+        const converter = await getHeicConverter();
+        const fallbackBuffer = await converter({
+          buffer: buffer,
+          format: 'JPEG',
+          quality: 0.6 // Even lower quality for fallback
+        });
+        
+        const fallbackBase64 = \`data:image/jpeg;base64,\${fallbackBuffer.toString('base64')}\`;
+        
+        const fallbackResponse = NextResponse.json({ 
+          success: true, 
+          data: fallbackBase64,
+          originalFormat: 'heic',
+          fallback: true
+        });
+        
+        // Set CORS headers for fallback response too
+        fallbackResponse.headers.set('Access-Control-Allow-Origin', '*');
+        fallbackResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        fallbackResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        
+        return fallbackResponse;
+      } catch (fallbackError) {
+        console.error('Fallback conversion also failed:', fallbackError);
+        return NextResponse.json(
+          { error: 'Failed to convert HEIC image after multiple attempts' },
+          { status: 500 }
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Server error processing HEIC file:', error);
+    return NextResponse.json(
+      { error: 'Server error processing image' },
+      { status: 500 }
+    );
+  }
+}
+
+// Add OPTIONS method for CORS preflight requests
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 204 });
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
+}`;
+
+  // Write the clean implementation to the file
+  fs.writeFileSync(filePath, cleanImplementation, 'utf8');
+  console.log('Successfully created a clean heic-convert route.ts file!');
 } catch (error) {
-  console.error('Error fixing UUID dependency:', error);
+  console.error('Error fixing file:', error);
   process.exit(1);
 } 

@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node fix-uuid.js && node install-deps.js",
+    "prebuild": "node vercel-prebuild.js && node fix-uuid.js && node install-deps.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npm install react-icons@5.5.0 tailwindcss@3.4.1 postcss@8 eslint@8.57.0 --no-save"
+    "postinstall": "npm install react-icons@5.5.0 tailwindcss@3.4.1 postcss@8 eslint@8.57.0 --no-save",
+    "vercel-build": "node vercel-prebuild.js && node fix-uuid.js && node install-deps.js && next build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.48",
