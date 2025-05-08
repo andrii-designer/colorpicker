@@ -25,34 +25,68 @@ console.log(`Found ${tsFiles.length} TypeScript files to convert`);
 function manuallyFixProblemFiles() {
   const problemFiles = {
     'src/app/components/ui/ChatPanel.js': (content) => {
-      return content.replace(
-        /export function ChatPanel\(\{ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo \} \{/g,
-        'export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }) {'
-      );
+      return content
+        .replace(
+          /export function ChatPanel\(\{ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo \} \{/g,
+          'export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }) {'
+        )
+        // Fix style={{ overflow border background }} syntax
+        .replace(
+          /style=\{\{ overflow border background \}\}/g,
+          'style={{ overflow: "auto", border: "none", background: "transparent" }}'
+        );
     },
     'src/app/components/ui/Logo.js': (content) => {
-      return content.replace(
-        /export function Logo\(\{ className \} \{/g,
-        'export function Logo({ className }) {'
-      );
+      return content
+        .replace(
+          /export function Logo\(\{ className \} \{/g,
+          'export function Logo({ className }) {'
+        )
+        // Fix extra commas in destructuring
+        .replace(
+          /export function Logo\(\{, className, \}\) \{/g,
+          'export function Logo({ className }) {'
+        );
     },
     'src/app/components/ui/Navigation.js': (content) => {
-      return content.replace(
-        /export function Navigation\(\{ className, items = defaultItems \} \{/g,
-        'export function Navigation({ className, items = defaultItems }) {'
-      );
+      return content
+        .replace(
+          /export function Navigation\(\{ className, items = defaultItems \} \{/g,
+          'export function Navigation({ className, items = defaultItems }) {'
+        )
+        // Fix style object with missing commas
+        .replace(
+          /style=\{\{\s*display padding justifyContent alignItems gap borderRadius background \? '#000'  \}\}/g,
+          'style={{ display: "flex", padding: "8px 12px", justifyContent: "center", alignItems: "center", gap: "4px", borderRadius: "4px", background: "#000" }}'
+        )
+        // Fix span style with ternary operator
+        .replace(
+          /<span style=\{\{ \s*color \? '#FFF' : '#000',/g,
+          '<span style={{ color: "#FFF",'
+        );
     },
     'src/components/ColorPalette/ColorDisplay.js': (content) => {
-      return content.replace(
-        /function useBaseColor\(colors randomSection \{/g,
-        'function useBaseColor(colors, randomSection) {'
-      );
+      return content
+        .replace(
+          /function useBaseColor\(colors randomSection \{/g,
+          'function useBaseColor(colors, randomSection) {'
+        )
+        .replace(
+          /function useBaseColor\(colors, randomSection \{/g,
+          'function useBaseColor(colors, randomSection) {'
+        );
     },
     'src/components/ColorPalette/ImageUploader.js': (content) => {
-      return content.replace(
-        /export default function ImageUploader\(\{ onImageSelect \} \{/g,
-        'export default function ImageUploader({ onImageSelect }) {'
-      );
+      return content
+        .replace(
+          /export default function ImageUploader\(\{ onImageSelect \} \{/g,
+          'export default function ImageUploader({ onImageSelect }) {'
+        )
+        // Fix extra commas in destructuring
+        .replace(
+          /export default function ImageUploader\(\{, onImageSelect, \}\) \{/g,
+          'export default function ImageUploader({ onImageSelect }) {'
+        );
     }
   };
 
