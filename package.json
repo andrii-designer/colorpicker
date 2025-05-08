@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npm install react-icons@5.5.0 --no-save"
+    "postinstall": "npm install react-icons@5.5.0 tailwindcss@3.4.1 postcss@8 --no-save"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.48",
@@ -27,6 +27,7 @@
     "heic-convert": "^2.1.0",
     "lucide-react": "^0.436.0",
     "next": "14.2.7",
+    "postcss": "^8",
     "react": "^18",
     "react-colorful": "^5.6.1",
     "react-dom": "^18",
@@ -35,6 +36,7 @@
     "react-icons": "^5.5.0",
     "react-markdown": "^9.0.1",
     "replicate": "^0.32.0",
+    "tailwindcss": "^3.4.1",
     "tinycolor2": "^1.6.0"
   },
   "devDependencies": {
@@ -43,8 +45,6 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.7",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }
 }
