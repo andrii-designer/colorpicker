@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node fix-uuid.js && node install-deps.js",
+    "prebuild": "node fix-uuid.js && node install-deps.js && node fix-typescript.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

@@ -63,6 +63,46 @@ if (!packageJson.devDependencies['eslint']) {
   changed = true;
 }
 
+// Check typescript
+if (!packageJson.devDependencies['typescript']) {
+  console.log('typescript not found in devDependencies, adding it...');
+  if (!packageJson.devDependencies) {
+    packageJson.devDependencies = {};
+  }
+  packageJson.devDependencies['typescript'] = '^5.0.4';
+  changed = true;
+}
+
+// Check @types/react
+if (!packageJson.devDependencies['@types/react']) {
+  console.log('@types/react not found in devDependencies, adding it...');
+  if (!packageJson.devDependencies) {
+    packageJson.devDependencies = {};
+  }
+  packageJson.devDependencies['@types/react'] = '^18.2.0';
+  changed = true;
+}
+
+// Check @types/react-dom
+if (!packageJson.devDependencies['@types/react-dom']) {
+  console.log('@types/react-dom not found in devDependencies, adding it...');
+  if (!packageJson.devDependencies) {
+    packageJson.devDependencies = {};
+  }
+  packageJson.devDependencies['@types/react-dom'] = '^18.2.1';
+  changed = true;
+}
+
+// Check @types/node
+if (!packageJson.devDependencies['@types/node']) {
+  console.log('@types/node not found in devDependencies, adding it...');
+  if (!packageJson.devDependencies) {
+    packageJson.devDependencies = {};
+  }
+  packageJson.devDependencies['@types/node'] = '^20.1.0';
+  changed = true;
+}
+
 if (changed) {
   fs.writeFileSync(path.join(__dirname, 'package.json'), JSON.stringify(packageJson, null, 2));
   console.log('Updated package.json with required dependencies');
@@ -72,7 +112,7 @@ if (changed) {
 console.log('Installing required dependencies explicitly...');
 try {
   execSync('npm install react-icons@5.5.0 tailwindcss@3.4.1 postcss@8 uuid@9.0.0 --no-save', { stdio: 'inherit' });
-  execSync('npm install @types/uuid@9.0.1 eslint@8.57.0 --save-dev --no-save', { stdio: 'inherit' });
+  execSync('npm install @types/uuid@9.0.1 eslint@8.57.0 typescript@5.0.4 @types/react@18.2.0 @types/react-dom@18.2.1 @types/node@20.1.0 --save-dev --no-save', { stdio: 'inherit' });
   console.log('Successfully installed required dependencies!');
 } catch (error) {
   console.error('Error installing dependencies:', error);
