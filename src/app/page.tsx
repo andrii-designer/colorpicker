@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiMessageSquare, FiX, FiEdit2, FiMove, FiArrowLeft, FiDownload } from 'react-icons/fi';
+import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiX, FiEdit2, FiMove, FiArrowLeft, FiDownload } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
@@ -21,6 +21,7 @@ import { ChatPanel } from './components/ui/ChatPanel';
 import { PaletteDisplay } from './components/ui/PaletteDisplay';
 import { cn } from '../lib/utils';
 import Image from 'next/image';
+import BobbyIcon from './assets/bobby.svg';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -508,7 +509,7 @@ export default function Home() {
         {
           id: '1',
           text: 'Welcome! Generate color palettes, or click a color to copy it.',
-          icon: <FiMessageSquare />
+          icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
         }
       ]);
     }, 1000);
@@ -632,7 +633,7 @@ export default function Home() {
             id: Date.now().toString(),
             text: advice,
             score: score,
-            icon: <FiMessageSquare className="h-5 w-5" />
+            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
           };
           
           setAdviceMessages(prev => [...prev, newMessage]);
@@ -652,7 +653,7 @@ export default function Home() {
             id: Date.now().toString(),
             text: analysis.advice,
             score: analysis.score,
-            icon: <FiMessageSquare className="h-5 w-5" />
+            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
           };
           
           setAdviceMessages(prev => [...prev, newMessage]);
