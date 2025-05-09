@@ -1,34 +1,15 @@
-
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
 const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
   typescript: {
-    // Disable TypeScript checking
-    ignoreBuildErrors: true,
+    // Only ignore TypeScript errors on Vercel
+    ignoreBuildErrors: false
   },
   eslint: {
-    // Disable ESLint checking
-    ignoreDuringBuilds: true,
-  },
-  webpack: (config) => {
-    // Add fallbacks for Node.js modules
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      path: false,
-    };
-    
-    // Resolve aliases
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': path.resolve(__dirname, './src'),
-    };
-    
-    return config;
-  },
-  // Transpile packages if needed
-  transpilePackages: ['react-icons'],
+    // Only ignore ESLint errors on Vercel
+    ignoreDuringBuilds: false
+  }
 };
 
 module.exports = nextConfig;
