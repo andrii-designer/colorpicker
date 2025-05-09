@@ -7,6 +7,7 @@ import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiX, FiEdit2, FiMove,
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
+import { generateEnhancedPalette, HarmonyType, EnhancedColorOptions } from '../lib/utils/enhancedColorGeneration';
 import ColorDisplay from '../components/ColorPalette/ColorDisplay';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -22,6 +23,7 @@ import { PaletteDisplay } from './components/ui/PaletteDisplay';
 import { cn } from '../lib/utils';
 import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
+import ColorControls from '../components/ui/ColorControls';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -457,6 +459,10 @@ export default function Home() {
   const [paletteHistory, setPaletteHistory] = useState<string[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   
+  // State for selected harmony type and advanced options
+  const [selectedHarmonyType, setSelectedHarmonyType] = useState<HarmonyType>('analogous');
+  const [showHarmonyOptions, setShowHarmonyOptions] = useState(false);
+  
   // Computed undo/redo status
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < paletteHistory.length - 1;
@@ -572,8 +578,23 @@ export default function Home() {
   // Function to generate random palette (button click)
   function handleGenerateRandom() {
     try {
+      // Use the enhanced color generation algorithm
+      const harmonyTypes: HarmonyType[] = [
+        'analogous', 'monochromatic', 'triad', 'complementary', 
+        'splitComplementary', 'tetrad', 'square', 'natural', 
+        'vibrant', 'pastel'
+      ];
+      
+      // Select a random harmony type for variety
+      const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
+      
       // Generate new random colors
-      const newColors = generateHarmoniousPalette('#' + Math.floor(Math.random()*16777215).toString(16), 'analogous', 5);
+      const newColors = generateEnhancedPalette({
+        harmonyType: randomType,
+        count: 5,
+        randomize: 0.3,
+        contrastEnhance: true
+      });
       
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
@@ -596,6 +617,44 @@ export default function Home() {
       console.log(`Button: Generated palette, now at history position ${newHistory.length - 1}`);
     } catch (error) {
       console.error("Error generating random palette:", error);
+    }
+  }
+  
+  // Function to generate palette with specific harmony type
+  function handleGenerateWithHarmony(harmonyType: HarmonyType) {
+    try {
+      // Generate new colors with the selected harmony type
+      const newColors = generateEnhancedPalette({
+        harmonyType: harmonyType,
+        count: 5,
+        randomize: 0.3,
+        contrastEnhance: true
+      });
+      
+      // Analyze the new colors
+      const analysis = analyzeColorPalette(newColors);
+      
+      // Add to history
+      const newHistory = paletteHistory.slice(0, historyIndex + 1);
+      newHistory.push(newColors);
+      setPaletteHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      // Update UI with new colors
+      setRandomColors(newColors);
+      
+      // Save the analysis for later use
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+      
+      console.log(`Generated ${harmonyType} palette, now at history position ${newHistory.length - 1}`);
+      
+      // Close the harmony options dropdown
+      setShowHarmonyOptions(false);
+    } catch (error) {
+      console.error(`Error generating ${harmonyType} palette:`, error);
     }
   }
   
@@ -901,6 +960,49 @@ export default function Home() {
       toast.error('Failed to export palette');
     }
   };
+  
+  // Function to handle advanced color generation with user-provided options
+  function handleAdvancedGeneration(options: {
+    harmonyType: HarmonyType;
+    temperature: 'warm' | 'cool' | 'mixed';
+    contrastEnhance: boolean;
+    randomize: number;
+  }) {
+    try {
+      // Generate new colors with the provided options
+      const newColors = generateEnhancedPalette({
+        harmonyType: options.harmonyType,
+        temperature: options.temperature,
+        contrastEnhance: options.contrastEnhance,
+        randomize: options.randomize,
+        count: 5
+      });
+      
+      // Analyze the new colors
+      const analysis = analyzeColorPalette(newColors);
+      
+      // Add to history
+      const newHistory = paletteHistory.slice(0, historyIndex + 1);
+      newHistory.push(newColors);
+      setPaletteHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      // Update UI with new colors
+      setRandomColors(newColors);
+      
+      // Save the analysis for later use
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+      
+      toast.success(`Generated ${options.harmonyType} palette`);
+      console.log(`Generated advanced palette with ${options.harmonyType} harmony`);
+    } catch (error) {
+      console.error("Error generating advanced palette:", error);
+      toast.error("Failed to generate palette");
+    }
+  }
   
   // Render the new UI
   return (
