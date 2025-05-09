@@ -823,6 +823,84 @@ export default function Home() {
     }
   };
   
+  const handleExportPalette = () => {
+    // Create a canvas element
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      toast.error('Your browser does not support canvas export');
+      return;
+    }
+    
+    // Get device pixel ratio for high-resolution export
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set canvas dimensions - vertical layout with higher resolution
+    const colorCount = randomColors.length;
+    const baseWidth = 800; // Increased base width
+    const baseHeight = colorCount * 200; // Increased height per color
+    
+    // Set display size (css pixels)
+    canvas.style.width = baseWidth + 'px';
+    canvas.style.height = baseHeight + 'px';
+    
+    // Set actual size in memory (scaled for higher resolution)
+    canvas.width = baseWidth * dpr;
+    canvas.height = baseHeight * dpr;
+    
+    // Scale all drawing operations by the dpr
+    ctx.scale(dpr, dpr);
+    
+    // Draw color boxes in a column (vertical) layout
+    randomColors.forEach((color, index) => {
+      const y = index * (baseHeight / colorCount);
+      const colorHeight = baseHeight / colorCount;
+      
+      // Draw color box
+      ctx.fillStyle = color;
+      ctx.fillRect(0, y, baseWidth, colorHeight);
+      
+      // Draw color code with white text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px Inter, monospace'; // Larger font
+      ctx.textAlign = 'left';
+      
+      // Add shadow to text for better visibility on any background
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+      
+      // Draw text with more padding from the edge
+      ctx.fillText(color.toUpperCase(), 40, y + colorHeight - 40);
+      
+      // Reset shadow for next operations
+      ctx.shadowColor = 'transparent';
+    });
+    
+    // Convert canvas to data URL with maximum quality
+    try {
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      
+      // Create download link
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `color-palette-${timestamp}.png`;
+      link.href = dataUrl;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('High-quality palette downloaded!');
+    } catch (err) {
+      console.error('Error exporting palette:', err);
+      toast.error('Failed to export palette');
+    }
+  };
+  
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
@@ -887,7 +965,7 @@ export default function Home() {
                 </svg>
               </button>
               <button 
-                onClick={() => toast.success('Palette downloaded!')} 
+                onClick={handleExportPalette} 
                 style={{
                   display: 'flex',
                   padding: '8px 12px',
