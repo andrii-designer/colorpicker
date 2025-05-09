@@ -8,6 +8,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
 import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
 import { generateEnhancedPalette, HarmonyType, EnhancedColorOptions } from '../lib/utils/enhancedColorGeneration';
+import { generateColorPalette } from '../lib/utils';
 import ColorDisplay from '../components/ColorPalette/ColorDisplay';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -23,7 +24,7 @@ import { PaletteDisplay } from './components/ui/PaletteDisplay';
 import { cn } from '../lib/utils';
 import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
-import ColorControls from '../components/ui/ColorControls';
+import ColorControls from './components/ui/ColorControls';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -259,7 +260,7 @@ const SortableColorItem = ({
           className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Edit color"
         >
-          <FiEdit2 className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
+          <span className={`${isDark ? 'text-white' : 'text-black'} text-xs font-bold`}>Edit</span>
         </button>
         
         {/* Copy button */}
@@ -272,7 +273,7 @@ const SortableColorItem = ({
           className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Copy hex code"
         >
-          <FiCopy className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
+          <span className={`${isDark ? 'text-white' : 'text-black'} text-xs font-bold`}>Copy</span>
         </button>
         
         {/* Drag handle */}
@@ -281,7 +282,7 @@ const SortableColorItem = ({
           className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           title="Drag to reorder"
         >
-          <FiMove className={`h-4 w-4 ${isDark ? 'text-white' : 'text-black'}`} />
+          <span className={`${isDark ? 'text-white' : 'text-black'} text-xs font-bold`}>↕</span>
         </button>
       </div>
     </div>
@@ -578,23 +579,21 @@ export default function Home() {
   // Function to generate random palette (button click)
   function handleGenerateRandom() {
     try {
-      // Use the enhanced color generation algorithm
+      // Use the enhanced color generation algorithm with guaranteed vibrant colors
       const harmonyTypes: HarmonyType[] = [
-        'analogous', 'monochromatic', 'triad', 'complementary', 
-        'splitComplementary', 'tetrad', 'square', 'natural', 
-        'vibrant', 'pastel'
+        'vibrant', 'analogous', 'monochromatic', 'triad', 'complementary', 
+        'splitComplementary', 'tetrad', 'square'
       ];
       
       // Select a random harmony type for variety
       const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
       
-      // Generate new random colors
-      const newColors = generateEnhancedPalette({
-        harmonyType: randomType,
-        count: 5,
-        randomize: 0.3,
-        contrastEnhance: true
-      });
+      // Generate new random colors with ultra vibrant mode
+      const newColors = generateColorPalette('#' + Math.floor(Math.random()*16777215).toString(16), {
+        paletteType: randomType as any,
+        numColors: 5,
+        highContrast: true // Always use high contrast mode for vibrant colors
+      }).map(color => color.hex);
       
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
@@ -614,7 +613,7 @@ export default function Home() {
         score: analysis.score
       };
       
-      console.log(`Button: Generated palette, now at history position ${newHistory.length - 1}`);
+      console.log(`Button: Generated vibrant palette, now at history position ${newHistory.length - 1}`);
     } catch (error) {
       console.error("Error generating random palette:", error);
     }
@@ -967,8 +966,38 @@ export default function Home() {
     temperature: 'warm' | 'cool' | 'mixed';
     contrastEnhance: boolean;
     randomize: number;
+    highContrast?: boolean;
+    usePastels?: boolean;
   }) {
     try {
+      // If using one of our ultra vibrant modes
+      if (options.highContrast || options.usePastels) {
+        // Generate colors using the extreme vibrant palette generator
+        const baseHue = Math.floor(Math.random() * 360); // Random starting hue
+        const palette = generateColorPalette(`hsl(${baseHue}, 100%, 50%)`, {
+          paletteType: options.harmonyType as any, // Convert harmony type to palette type
+          numColors: 5,
+          highContrast: options.highContrast || false,
+          usePastels: options.usePastels || false
+        });
+        
+        // Update UI with new colors
+        const hexColors = palette.map(color => color.hex);
+        setRandomColors(hexColors);
+        
+        // Add to history
+        const newHistory = paletteHistory.slice(0, historyIndex + 1);
+        newHistory.push(hexColors);
+        setPaletteHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+        
+        // Success message
+        const styleType = options.usePastels ? "pastel" : "ultra vibrant";
+        toast.success(`Generated ${styleType} ${options.harmonyType} palette`);
+        return;
+      }
+    
+      // Original behavior for standard mode
       // Generate new colors with the provided options
       const newColors = generateEnhancedPalette({
         harmonyType: options.harmonyType,
@@ -1007,163 +1036,73 @@ export default function Home() {
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
-      {/* Header with max width - remove border-b and set padding to 16px */}
-      <header className="py-0 bg-white flex-shrink-0">
-        <div 
-          className="w-full flex items-center justify-between" 
-          style={{
-            height: '80px',
-            background: '#FFF'
-          }}
-        >
-          <div className="flex items-center justify-start ml-4">
-            <Logo />
-          </div>
-          
-          <div className="flex items-center justify-center">
-            <Navigation />
-          </div>
-          
-          <div className="flex items-center justify-end">
-            <div 
-              className="flex items-center" 
-              style={{
-                width: '306px',
-                justifyContent: 'space-between',
-                marginRight: '16px'
-              }}
-            >
-              <button 
-                onClick={() => { if (canUndo) handleUndo(); }} 
-                disabled={!canUndo}
-                style={{
-                  display: 'flex',
-                  padding: '8px 12px',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                className={`rounded hover:bg-gray-100 transition-colors ${!canUndo ? 'opacity-40 cursor-not-allowed' : ''}`}
-                title="Undo"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7.13086 18.3105H15.1309C17.8909 18.3105 20.1309 16.0705 20.1309 13.3105C20.1309 10.5505 17.8909 8.31055 15.1309 8.31055H4.13086" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M6.42914 10.8095L3.86914 8.24945L6.42914 5.68945" stroke="#292D32" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <button 
-                onClick={() => { if (canRedo) handleRedo(); }} 
-                disabled={!canRedo}
-                style={{
-                  display: 'flex',
-                  padding: '8px 12px',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                className={`rounded hover:bg-gray-100 transition-colors ${!canRedo ? 'opacity-40 cursor-not-allowed' : ''}`}
-                title="Redo"
-              >
-                <svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M17.3691 18.3105H9.36914C6.60914 18.3105 4.36914 16.0705 4.36914 13.3105C4.36914 10.5505 6.60914 8.31055 9.36914 8.31055H20.3691" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M18.0703 10.8095L20.6303 8.24945L18.0703 5.68945" stroke="#292D32" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <button 
-                onClick={handleExportPalette} 
-                style={{
-                  display: 'flex',
-                  padding: '8px 12px',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                className="rounded hover:bg-gray-100 transition-colors"
-                title="Export palette"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9.32031 6.49945L11.8803 3.93945L14.4403 6.49945" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M11.8809 14.1798V4.00977" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M4 12C4 16.42 7 20 12 20C17 20 20 16.42 20 12" stroke="#292D32" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+      <header className="border-b bg-white px-6 py-4 flex-shrink-0">
+        <div className="container mx-auto flex items-center justify-between">
+          <Logo />
+          <Navigation />
         </div>
       </header>
-      
-      {/* Main content - remove toolbar and adjust spacing */}
-      <div className="w-full flex-1 flex flex-col"
-        style={{
-          maxWidth: '100%',
-          overflow: 'hidden',
-          height: 'calc(100vh - 80px)', // Subtract header height to ensure consistent sizing
-          background: '#FFFFFF',
-          border: 'none'
-        }}>
-        <main className="flex flex-1 pb-4 overflow-hidden h-full" style={{ border: 'none' }}>
-          {/* Color palette section - Takes full height with top margin */}
-          <div className="flex-1 ml-4 overflow-hidden flex">
-            {/* DnD Context for drag and drop functionality */}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              modifiers={[restrictToVerticalAxis]}
+
+      <main className="flex flex-1 pb-4 overflow-hidden h-full">
+        {/* Color palette section - Takes full height with top margin */}
+        <div className="flex-1 ml-4 overflow-hidden flex">
+          {/* DnD Context for drag and drop functionality */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            modifiers={[restrictToVerticalAxis]}
+          >
+            <SortableContext
+              items={colorIds.slice(0, randomColors.length)}
+              strategy={verticalListSortingStrategy}
             >
-              <SortableContext
-                items={colorIds.slice(0, randomColors.length)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="grid grid-cols-1 auto-rows-fr overflow-hidden w-full h-full">
-                  {randomColors.map((color, index) => {
-                    const itemId = colorIds[index] || `color-${index}`;
-                    const isBeingDragged = activeId === itemId;
-                    
-                    return (
-                      <SortableColorItem
-                        key={itemId}
-                        id={itemId}
-                        color={color}
-                        index={index}
-                        onColorClick={handleColorClick}
-                        onEditClick={handleEditClick}
-                        isFirst={index === 0}
-                        isLast={index === randomColors.length - 1}
-                        isDragging={isBeingDragged}
-                      />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
-          </div>
-          
-          {/* Chat panel - Fixed width (338px) on the right */}
-          <div className="w-[338px] flex-shrink-0 h-full overflow-hidden relative" style={{ border: 'none' }}>
-            <ChatPanel
-              messages={adviceMessages}
-              onAskForAdvice={handleAskForAdvice}
-              onGeneratePalette={handleGenerateRandom}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-            />
-          </div>
-        </main>
-      </div>
+              <div className="grid grid-cols-1 auto-rows-fr overflow-hidden w-full h-full">
+                {randomColors.map((color, index) => {
+                  const itemId = colorIds[index] || `color-${index}`;
+                  const isBeingDragged = activeId === itemId;
+                  
+                  return (
+                    <SortableColorItem
+                      key={itemId}
+                      id={itemId}
+                      color={color}
+                      index={index}
+                      onColorClick={handleColorClick}
+                      onEditClick={handleEditClick}
+                      isFirst={index === 0}
+                      isLast={index === randomColors.length - 1}
+                      isDragging={isBeingDragged}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+        
+        {/* Chat panel - Fixed width (338px) on the right */}
+        <div className="w-[338px] flex-shrink-0 h-full overflow-hidden relative">
+          <ChatPanel
+            messages={adviceMessages}
+            onAskForAdvice={handleAskForAdvice}
+            onGeneratePalette={handleGenerateRandom}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+          />
+        </div>
+      </main>
       
       {/* Keep all the modals and notifications */}
       {colorPickerVisible && (
-        createPortal(
-          <div className="fixed inset-0 z-50 pointer-events-none">
-            <ColorPickerModal
-              color={currentEditingColor}
-              onClose={handleCloseColorPicker}
-              onChange={handleColorChange}
-              anchorPosition={colorPickerPosition}
-            />
-          </div>,
-          document.body
-        )
+        <ColorPickerModal
+          color={currentEditingColor}
+          onClose={handleCloseColorPicker}
+          onChange={handleColorChange}
+          anchorPosition={colorPickerPosition}
+        />
       )}
       
       <Toaster position="bottom-center" />
