@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { cn } from '../../../lib/utils'
 import Image from 'next/image'
+import BobbyIcon from '../../assets/bobby.svg'
 
 interface ChatMessage {
   id: string
@@ -84,6 +85,14 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-[#888888]">
+              <div className="mb-4">
+                <Image 
+                  src={BobbyIcon} 
+                  alt="Bobby" 
+                  width={80} 
+                  height={80} 
+                />
+              </div>
               <p className="text-sm" style={{
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
