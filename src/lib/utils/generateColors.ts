@@ -4,19 +4,38 @@ import { ACCURATE_COLOR_DATA } from './simplifiedColorData';
 import tinycolor from 'tinycolor2';
 const tinycolorLib: any = tinycolor;
 
+// Import the new perceptual color generation
+import { generateOptimizedPalette } from './perceptualColorGeneration';
+
+// Import the new beautiful palette generator
+import { generateBeautifulPalette } from './enhancedPaletteGeneration';
+
+// Define types
 export interface Color {
   hex: string;
-  rgb: { r: number; g: number; b: number };
-  hsl: { h: number; s: number; l: number };
+  rgb: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+  };
+  hsl: {
+    h: number;
+    s: number;
+    l: number;
+    a?: number;
+  };
   name?: string;
 }
 
-// Configuration interface for palette generation
 export interface PaletteOptions {
-  paletteType: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
-  useAdobeAlgorithm?: boolean;
-  count?: number;
-  seed?: number;
+  numColors?: number;
+  useNamedColors?: boolean;
+  namedColorRatio?: number;
+  paletteType?: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
+  colorData?: any[];
+  enforceMinContrast?: boolean;
+  temperature?: 'warm' | 'cool' | 'mixed';
 }
 
 // Color harmony patterns
@@ -161,17 +180,10 @@ function getRandomSeed(): number {
 }
 
 // Generate a random color with timestamp-based seed
-function generateRandomColor(): Color {
-  const seed = getRandomSeed();
-  const h = Math.floor(seed * 360) % 360;
-  const s = 70 + Math.floor(seed * 20) % 30; // 70-100%
-  const l = 40 + Math.floor(seed * 20) % 40; // 40-80%
-  
-  return {
-    hsl: { h, s, l },
-    hex: hslToHex(h, s, l),
-    rgb: hslToRgb(h, s, l)
-  };
+function generateRandomColor(): string {
+  const randomHex = Math.floor(Math.random() * 16777215).toString(16);
+  // Ensure 6 digits
+  return `#${randomHex.padStart(6, '0')}`;
 }
 
 // Function to check if two colors are too similar
@@ -444,118 +456,172 @@ export function generateColorPalette(
   baseColor: string, 
   options: PaletteOptions
 ): Color[] {
-  const {
-    paletteType,
-    useAdobeAlgorithm = true,
-    count = 5
-  } = options;
-
-  // Convert base color
-  const base = tinycolorLib(baseColor);
-  const baseHsl = base.toHsl();
+  // Set defaults
+  const paletteType = options.paletteType || 'analogous';
+  const numColors = options.numColors || 5;
   
-  // Create result array with base color
-  const result: Color[] = [{
-    hex: base.toHexString(),
-    rgb: base.toRgb(),
-    hsl: {
-      h: baseHsl.h,
-      s: baseHsl.s * 100,
-      l: baseHsl.l * 100
-    },
-    name: 'Base'
-  }];
-
-  // Generate additional colors
-  for (let i = 1; i < count; i++) {
-    // Default to base color properties
-    let h = baseHsl.h;
-    let s = baseHsl.s;
-    let l = baseHsl.l;
-    
-    // Adjust based on palette type
-    switch (paletteType) {
-      case 'monochromatic':
-        // Only adjust lightness
-        l = baseHsl.l + (i % 2 === 0 ? 0.2 : -0.2) * Math.min(0.4, Math.ceil(i / 2) * 0.1);
-        l = Math.max(0.1, Math.min(0.9, l));
-        break;
-        
-      case 'complementary':
-        // Use opposite hue for some colors
-        if (i % 2 === 1) {
-          h = (baseHsl.h + 180) % 360;
-        }
-        break;
-        
-      case 'analogous':
-        // Neighboring hues
-        h = (baseHsl.h + (i % 2 === 0 ? 1 : -1) * (i * 15)) % 360;
-        if (h < 0) h += 360;
-        break;
-        
-      case 'triadic':
-        // Three colors 120° apart
-        h = (baseHsl.h + (i % 3) * 120) % 360;
-        break;
-        
-      case 'tetradic':
-        // Four colors 90° apart
-        h = (baseHsl.h + (i % 4) * 90) % 360;
-        break;
-        
-      case 'splitComplementary':
-        // Base + two colors near complement
-        if (i === 1) {
-          h = (baseHsl.h + 150) % 360;
-        } else if (i === 2) {
-          h = (baseHsl.h + 210) % 360;
-        } else {
-          h = (baseHsl.h + (i % 3) * 120) % 360;
-        }
-        break;
-    }
-    
-    // Create new color
-    const newColor = tinycolorLib({h, s, l});
-    
-    // Apply harmonization if requested
-    let finalColor = newColor;
-    if (useAdobeAlgorithm) {
-      const adjustedHsl = newColor.toHsl();
-      const harmonizedColor = tinycolorLib({
-        h: adjustedHsl.h,
-        s: Math.min(Math.max(adjustedHsl.s * 0.9 + 0.1, 0.3), 0.8),
-        l: Math.min(Math.max(adjustedHsl.l * 0.85 + 0.15, 0.3), 0.8)
-      });
-      finalColor = harmonizedColor;
-    }
-    
-    // Get final color properties
-    const finalHsl = finalColor.toHsl();
-    
-    // Generate name
-    let name = '';
-    if (paletteType === 'monochromatic') {
-      name = i % 2 === 0 ? `Tint ${Math.ceil(i / 2)}` : `Shade ${Math.ceil(i / 2)}`;
-    } else {
-      name = `Color ${i + 1}`;
-    }
-    
-    // Add to result
-    result.push({
-      hex: finalColor.toHexString(),
-      rgb: finalColor.toRgb(),
-      hsl: {
-        h: finalHsl.h,
-        s: finalHsl.s * 100,
-        l: finalHsl.l * 100
-      },
-      name
-    });
+  // Normalize base color
+  if (!baseColor.startsWith('#')) {
+    baseColor = `#${baseColor}`;
   }
   
-  return result;
+  // Force using a valid hex color
+  let normalizedColor = baseColor;
+  try {
+    // Validate color with tinycolor
+    const tc = tinycolorLib(baseColor);
+    if (!tc.isValid()) {
+      normalizedColor = '#3366FF'; // Default blue if invalid
+    } else {
+      // Boost saturation slightly for better starting point
+      normalizedColor = tc.saturate(10).toHexString().toUpperCase();
+    }
+  } catch (e) {
+    normalizedColor = '#3366FF'; // Default fallback
+  }
+  
+  // Determine optimal tone profile based on temperature and palette type
+  let toneProfile: 'light' | 'balanced' | 'dark' = 'balanced';
+  let saturationStyle: 'muted' | 'balanced' | 'vibrant' = 'balanced';
+  
+  // Set specific configurations for different harmony types
+  if (paletteType === 'monochromatic') {
+    // Monochromatic looks best with more contrast in tones and less saturation variance
+    toneProfile = Math.random() < 0.7 ? 'balanced' : (Math.random() < 0.5 ? 'light' : 'dark');
+    saturationStyle = Math.random() < 0.7 ? 'balanced' : (Math.random() < 0.5 ? 'vibrant' : 'muted');
+  } 
+  else if (paletteType === 'analogous') {
+    // Analogous benefits from balanced tones and good vibrance
+    toneProfile = Math.random() < 0.6 ? 'balanced' : (Math.random() < 0.5 ? 'light' : 'dark');
+    saturationStyle = Math.random() < 0.6 ? 'balanced' : (Math.random() < 0.7 ? 'vibrant' : 'muted');
+  }
+  else if (paletteType === 'complementary') {
+    // Complementary needs good contrast and often looks better with one vibrant accent
+    toneProfile = Math.random() < 0.5 ? 'balanced' : 'dark';
+    saturationStyle = Math.random() < 0.7 ? 'vibrant' : 'balanced';
+  }
+  else if (paletteType === 'triadic' || paletteType === 'tetradic') {
+    // These complex harmonies need more cohesion in tone to avoid chaos
+    toneProfile = 'balanced';
+    saturationStyle = Math.random() < 0.6 ? 'balanced' : (Math.random() < 0.5 ? 'vibrant' : 'muted');
+  }
+  else if (paletteType === 'splitComplementary') {
+    // Split complementary benefits from strong tonal contrast
+    toneProfile = Math.random() < 0.6 ? 'dark' : 'balanced';
+    saturationStyle = Math.random() < 0.7 ? 'vibrant' : 'balanced';
+  }
+  
+  // Temperature overrides the defaults if specified
+  if (options.temperature) {
+    if (options.temperature === 'warm') {
+      // Warm palettes often look better with darker tones and vibrant colors
+      toneProfile = Math.random() < 0.5 ? 'dark' : 'balanced';
+      saturationStyle = Math.random() < 0.7 ? 'vibrant' : 'balanced';
+    } else if (options.temperature === 'cool') {
+      // Cool palettes work well with lighter tones and more balanced saturation
+      toneProfile = Math.random() < 0.5 ? 'light' : 'balanced';
+      saturationStyle = Math.random() < 0.5 ? 'vibrant' : 'balanced';
+    } else {
+      // For mixed, fully randomize for more variety
+      const toneRand = Math.random();
+      toneProfile = toneRand < 0.33 ? 'light' : (toneRand < 0.66 ? 'balanced' : 'dark');
+      
+      const satRand = Math.random();
+      saturationStyle = satRand < 0.33 ? 'muted' : (satRand < 0.75 ? 'balanced' : 'vibrant');
+    }
+  }
+  
+  try {
+    // Generate beautiful palette using our new algorithm
+    return generateBeautifulPalette(normalizedColor, {
+      harmonyType: paletteType,
+      count: numColors,
+      toneProfile: toneProfile,
+      saturationStyle: saturationStyle
+    });
+  } catch (error) {
+    console.error("Error generating palette:", error);
+    
+    // Fallback to a simple generation if something goes wrong
+    const tc = tinycolorLib(normalizedColor);
+    return Array(numColors).fill(0).map((_, i) => {
+      const adjustedColor = paletteType === 'monochromatic' 
+        ? tc.clone().lighten(i * 20).saturate(10) 
+        : tc.clone().spin(i * 45).saturate(10);
+      
+      return {
+        hex: adjustedColor.toHexString().toUpperCase(),
+        rgb: adjustedColor.toRgb(),
+        hsl: {
+          h: Math.round(adjustedColor.toHsl().h),
+          s: Math.round(adjustedColor.toHsl().s * 100),
+          l: Math.round(adjustedColor.toHsl().l * 100)
+        }
+      };
+    });
+  }
+}
+
+/**
+ * Generate an extremely vibrant palette - alternative option
+ */
+export function generateHyperVibrantPalette(
+  baseColor: string,
+  options: PaletteOptions
+): Color[] {
+  // Set defaults
+  const paletteType = options.paletteType || 'analogous';
+  const numColors = options.numColors || 5;
+  
+  // Normalize base color
+  if (!baseColor.startsWith('#')) {
+    baseColor = `#${baseColor}`;
+  }
+  
+  try {
+    // Generate beautiful palette with forced vibrant saturation
+    const palette = generateBeautifulPalette(baseColor, {
+      harmonyType: paletteType,
+      count: numColors,
+      toneProfile: 'balanced',
+      saturationStyle: 'vibrant'
+    });
+    
+    // Make it ULTRA vibrant with post-processing
+    return palette.map((color, index) => {
+      // Keep the lightest and darkest colors more reasonable
+      if (color.hsl.l > 85 || color.hsl.l < 15) {
+        return color;
+      }
+      
+      const tc = tinycolorLib(color.hex);
+      // Boost saturation even more for mid-tones
+      const boosted = tc.saturate(40);
+      
+      // Prevent colors from becoming too dark
+      if (boosted.toHsl().l < 0.3) {
+        boosted.lighten(15);
+      }
+      
+      // Convert to our format
+      return {
+        hex: boosted.toHexString().toUpperCase(),
+        rgb: boosted.toRgb(),
+        hsl: {
+          h: Math.round(boosted.toHsl().h),
+          s: Math.round(boosted.toHsl().s * 100),
+          l: Math.round(boosted.toHsl().l * 100)
+        }
+      };
+    });
+  } catch (error) {
+    console.error("Error generating hyper vibrant palette:", error);
+    return generateColorPalette(baseColor, {
+      ...options,
+      paletteType: paletteType,
+      numColors: numColors
+    });
+  }
 }
 
 // Placeholder for now - will be implemented later

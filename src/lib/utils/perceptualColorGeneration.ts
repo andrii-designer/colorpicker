@@ -11,6 +11,7 @@ import {
   calculateSaturationScore,
   calculateDeltaE
 } from './perceptualColorSpace';
+import { generateBeautifulPalette } from './enhancedPaletteGeneration';
 
 // Cast tinycolor to any to avoid type errors
 const tinycolorLib: any = tinycolor;
@@ -28,36 +29,84 @@ export interface OptimizedPalette {
 // Predefined color templates for common harmony types
 const HARMONY_TEMPLATES = {
   monochromatic: {
-    chromaMultipliers: [1.0, 0.8, 0.6, 0.7, 0.9],
-    lightnessOffsets: [0, 25, -25, 40, -40],
+    chromaMultipliers: [1.0, 0.9, 0.75, 0.6, 0.85],
+    lightnessOffsets: [0, 25, -25, 40, -35],
     hueOffsets: [0, 0, 0, 0, 0]
   },
   complementary: {
-    hueOffsets: [0, 180, 0, 180, 0],
-    chromaMultipliers: [1.0, 1.1, 0.9, 0.8, 1.2],
-    lightnessOffsets: [0, 0, 15, -15, -25]
+    hueOffsets: [0, 180, 30, 150, 210],
+    chromaMultipliers: [1.0, 1.1, 0.8, 0.9, 0.95],
+    lightnessOffsets: [0, 0, 20, -20, -30]
   },
   analogous: {
-    hueOffsets: [0, 30, -30, 45, -45],
+    hueOffsets: [0, 30, -30, 60, -60],
     chromaMultipliers: [1.0, 0.9, 0.9, 0.8, 0.8],
-    lightnessOffsets: [0, 10, -10, 25, -25]
+    lightnessOffsets: [0, 15, -15, 30, -30]
   },
   triadic: {
-    hueOffsets: [0, 120, 240, 120, 240],
-    chromaMultipliers: [1.0, 1.1, 1.0, 0.9, 0.9],
-    lightnessOffsets: [0, 0, 0, 15, -15]
+    hueOffsets: [0, 120, 240, 60, 180],
+    chromaMultipliers: [1.0, 1.1, 1.0, 0.85, 0.95],
+    lightnessOffsets: [0, 0, 0, 20, -20]
   },
   tetradic: {
-    hueOffsets: [0, 90, 180, 270, 0],
-    chromaMultipliers: [1.0, 0.9, 1.0, 0.9, 1.1],
-    lightnessOffsets: [0, 0, 0, 0, 20]
+    hueOffsets: [0, 90, 180, 270, 45],
+    chromaMultipliers: [1.0, 0.9, 1.05, 0.85, 0.95],
+    lightnessOffsets: [0, 0, 0, -25, 25]
   },
   splitComplementary: {
-    hueOffsets: [0, 150, 210, 150, 210],
-    chromaMultipliers: [1.0, 0.9, 0.9, 1.1, 1.1],
-    lightnessOffsets: [0, 0, 0, 20, -20]
+    hueOffsets: [0, 150, 210, 30, 180],
+    chromaMultipliers: [1.0, 0.9, 0.9, 1.1, 0.85],
+    lightnessOffsets: [0, 0, 0, 20, -25]
+  },
+  pentadic: {
+    hueOffsets: [0, 72, 144, 216, 288],
+    chromaMultipliers: [1.0, 0.9, 0.85, 0.95, 0.9],
+    lightnessOffsets: [0, 10, -10, 25, -25]
   }
 };
+
+// Tone structure templates - classic design patterns
+const TONE_STRUCTURES = {
+  classic: [
+    { lMin: 75, lMax: 95, cMin: 5, cMax: 20 },   // very light
+    { lMin: 10, lMax: 25, cMin: 10, cMax: 40 },  // very dark
+    { lMin: 40, lMax: 65, cMin: 30, cMax: 70 },  // mid-tone 1
+    { lMin: 50, lMax: 70, cMin: 25, cMax: 65 },  // mid-tone 2
+    { lMin: 30, lMax: 50, cMin: 35, cMax: 75 }   // mid-tone 3
+  ],
+  balanced: [
+    { lMin: 80, lMax: 95, cMin: 5, cMax: 15 },   // highlight
+    { lMin: 55, lMax: 75, cMin: 20, cMax: 50 },  // light
+    { lMin: 35, lMax: 55, cMin: 30, cMax: 70 },  // medium
+    { lMin: 15, lMax: 35, cMin: 20, cMax: 60 },  // dark
+    { lMin: 5, lMax: 20, cMin: 10, cMax: 40 }    // shadow
+  ],
+  vibrant: [
+    { lMin: 75, lMax: 90, cMin: 15, cMax: 35 },  // light vibrant
+    { lMin: 15, lMax: 30, cMin: 20, cMax: 55 },  // dark vibrant
+    { lMin: 45, lMax: 65, cMin: 50, cMax: 100 }, // medium vibrant 1
+    { lMin: 55, lMax: 75, cMin: 45, cMax: 85 },  // medium vibrant 2
+    { lMin: 35, lMax: 55, cMin: 55, cMax: 110 }  // medium vibrant 3
+  ]
+};
+
+// Reference colors from trending palettes - optional inspiration points
+const TRENDING_PALETTE_ANCHORS = [
+  // Warm trend anchors
+  { l: 50, c: 70, h: 30 },   // warm orange
+  { l: 45, c: 75, h: 10 },   // coral red
+  { l: 60, c: 65, h: 50 },   // yellow-orange
+  
+  // Cool trend anchors
+  { l: 55, c: 55, h: 250 },  // cornflower blue
+  { l: 45, c: 60, h: 190 },  // teal
+  { l: 60, c: 50, h: 150 },  // mint green
+  
+  // Neutral trend anchors
+  { l: 65, c: 10, h: 30 },   // beige
+  { l: 30, c: 15, h: 240 },  // slate
+  { l: 85, c: 5, h: 270 }    // light gray-lavender
+];
 
 /**
  * Generate a perceptually optimized color palette
@@ -85,10 +134,20 @@ export function generatePerceptualPalette(
   // Enhance base color for better starting point
   const enhancedBaseLch = enhanceBaseColor(baseLch, saturationPreference);
   
+  // Sometimes choose a complementary harmony for more variety
+  let effectiveHarmonyType = harmonyType;
+  if (harmonyType === 'analogous' && Math.random() < 0.2) {
+    // 20% chance of using split complementary for analogous requests
+    effectiveHarmonyType = 'splitComplementary';
+  } else if (harmonyType === 'complementary' && Math.random() < 0.2) {
+    // 20% chance of using tetradic for complementary requests
+    effectiveHarmonyType = 'tetradic';
+  }
+  
   // Create initial palette with template-based approach
   const initialPalette = generateTemplateBasedPalette(
     enhancedBaseLch, 
-    harmonyType, 
+    effectiveHarmonyType, 
     count, 
     saturationPreference
   );
@@ -96,24 +155,41 @@ export function generatePerceptualPalette(
   // Run optimization algorithm to find the best palette
   const optimizedPalette = optimizePalette(
     initialPalette, 
-    harmonyType, 
+    effectiveHarmonyType, 
     contrastEnhance,
     toneDistribution,
     saturationPreference
   );
   
   // Calculate final scores
-  const harmonyScore = calculateHarmonyScore(optimizedPalette, harmonyType);
+  const harmonyScore = calculateHarmonyScore(optimizedPalette, effectiveHarmonyType);
   const contrastScore = calculateContrastScore(optimizedPalette);
   const toneScore = calculateToneDistributionScore(optimizedPalette, toneDistribution);
   const saturationScore = calculateSaturationScore(optimizedPalette, saturationPreference);
   
-  // Overall score (weighted average - lower is better for harmony/tone, higher for contrast)
+  // Overall score (weighted average)
+  let harmonyWeight = 0.35;
+  let contrastWeight = contrastEnhance ? 0.35 : 0.25;
+  let toneWeight = 0.15;
+  let saturationWeight = 0.15;
+  
+  // Adjust weights based on preference
+  if (saturationPreference === 'vibrant') {
+    saturationWeight = 0.25;
+    toneWeight = 0.10;
+    harmonyWeight = 0.30;
+  } else if (saturationPreference === 'muted') {
+    saturationWeight = 0.10;
+    toneWeight = 0.25;
+    harmonyWeight = 0.30;
+  }
+  
+  // For contrast, higher is better, so invert the contribution
   const overallScore = (
-    (harmonyScore * 0.35) + 
-    (10 / Math.max(contrastScore, 1) * 0.35) + 
-    (toneScore * 0.15) +
-    (saturationScore * 0.15)
+    (harmonyScore * harmonyWeight) + 
+    (10 / Math.max(contrastScore, 1) * contrastWeight) + 
+    (toneScore * toneWeight) +
+    (saturationScore * saturationWeight)
   );
   
   // Convert to hex colors
@@ -143,43 +219,49 @@ function enhanceBaseColor(lch: LCH, preference: string): LCH {
       break;
     case 'muted':
       // Lower chroma for more muted colors, but keep enough to avoid muddiness
-      enhanced.c = Math.max(25, enhanced.c * 0.7);
+      enhanced.c = Math.max(20, Math.min(60, enhanced.c * 0.7));
       break;
     case 'balanced':
     default:
-      // Increase chroma for better color impact
-      enhanced.c = Math.min(120, enhanced.c * 1.2);
+      // Increase chroma for better color impact but keep it in nice range
+      enhanced.c = Math.max(30, Math.min(100, enhanced.c * 1.2));
       break;
   }
   
   // If the lightness is extreme, move it toward middle range for better chroma potential
   if (enhanced.l < 20) {
-    enhanced.l = 20 + (enhanced.l * 0.5);
+    enhanced.l = Math.min(45, 20 + (enhanced.l * 0.5));
   } else if (enhanced.l > 90) {
-    enhanced.l = 90 - ((100 - enhanced.l) * 0.5);
+    enhanced.l = Math.max(60, 90 - ((100 - enhanced.l) * 0.5));
   }
   
   // Adjust lightness based on hue to maximize chroma potential
   // Different hue regions have different optimal lightness for maximum chroma
   if (enhanced.h >= 0 && enhanced.h <= 30) { // Reds
     // Reds have highest chroma at lower lightness
-    enhanced.l = Math.max(enhanced.l, 30);
+    enhanced.l = Math.max(enhanced.l, 35);
     enhanced.l = Math.min(enhanced.l, 65);
   } else if (enhanced.h > 30 && enhanced.h <= 90) { // Yellows
     // Yellows need high lightness for good chroma
     enhanced.l = Math.max(enhanced.l, 65);
+    enhanced.l = Math.min(enhanced.l, 85);
   } else if (enhanced.h > 90 && enhanced.h <= 150) { // Greens
     // Greens have limited chroma range, moderate lightness is best
-    enhanced.l = Math.max(enhanced.l, 35);
+    enhanced.l = Math.max(enhanced.l, 40);
     enhanced.l = Math.min(enhanced.l, 75);
   } else if (enhanced.h > 150 && enhanced.h <= 270) { // Blues/Purples
     // Blues work well at moderate to lower lightness
-    enhanced.l = Math.min(enhanced.l, 70);
-    enhanced.l = Math.max(enhanced.l, 30);
+    enhanced.l = Math.min(enhanced.l, 65);
+    enhanced.l = Math.max(enhanced.l, 35);
   } else if (enhanced.h > 270 && enhanced.h <= 360) { // Magentas
     // Magentas work well at moderate lightness
-    enhanced.l = Math.min(enhanced.l, 75);
-    enhanced.l = Math.max(enhanced.l, 30);
+    enhanced.l = Math.min(enhanced.l, 70);
+    enhanced.l = Math.max(enhanced.l, 35);
+  }
+  
+  // Check for colors that are too gray (low chroma) and boost them slightly
+  if (enhanced.c < 20) {
+    enhanced.c = Math.max(20, enhanced.c * 1.5);
   }
   
   return enhanced;
@@ -199,18 +281,56 @@ function generateTemplateBasedPalette(
   const template = HARMONY_TEMPLATES[harmonyType as keyof typeof HARMONY_TEMPLATES] || 
                    HARMONY_TEMPLATES.analogous;
   
-  // Create palette array starting with the base color
-  const palette: LCH[] = [{ ...baseLch }];
+  // Choose a tone structure based on saturation preference
+  let toneStructure = TONE_STRUCTURES.classic;
+  if (saturationPreference === 'vibrant') {
+    toneStructure = TONE_STRUCTURES.vibrant;
+  } else if (saturationPreference === 'muted') {
+    toneStructure = TONE_STRUCTURES.balanced;
+  }
+  
+  // Shuffle tone structure to avoid predictable patterns
+  const shuffledToneStructure = [...toneStructure];
+  // Fisher-Yates shuffle algorithm
+  for (let i = shuffledToneStructure.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledToneStructure[i], shuffledToneStructure[j]] = [shuffledToneStructure[j], shuffledToneStructure[i]];
+  }
+  
+  // Always put a light color first and a dark color second for better contrast
+  const lightTone = shuffledToneStructure.find(t => t.lMin > 65) || shuffledToneStructure[0];
+  const darkTone = shuffledToneStructure.find(t => t.lMax < 35) || shuffledToneStructure[1];
+  
+  // Create palette array
+  const palette: LCH[] = [];
+  
+  // First color - base color adjusted to match tone structure
+  palette.push({
+    l: Math.max(lightTone.lMin, Math.min(lightTone.lMax, baseLch.l)),
+    c: Math.max(lightTone.cMin, Math.min(lightTone.cMax, baseLch.c)),
+    h: baseLch.h
+  });
   
   // Use templates for better initial distribution
   for (let i = 1; i < count; i++) {
     // Get template values with defaults for positions beyond template size
     const hueOffset = template.hueOffsets?.[i] ?? (i * 30 % 360);
-    const chromaMultiplier = template.chromaMultipliers?.[i] ?? 1.0;
-    const lightnessOffset = template.lightnessOffsets?.[i] ?? (i % 2 === 0 ? 15 : -15);
     
-    // Calculate new color values
+    // Calculate new hue
     const newHue = (baseLch.h + hueOffset + 360) % 360;
+    
+    // Get current tone structure for this position
+    const toneBucket = i === 1 ? darkTone : shuffledToneStructure[i % shuffledToneStructure.length];
+    
+    // Choose a lightness from the appropriate tonal bucket, biased toward middle of range
+    const bucketLRange = toneBucket.lMax - toneBucket.lMin;
+    const centerBias = Math.random() * 0.6 + 0.2; // 0.2-0.8 bias toward center
+    const newLightness = toneBucket.lMin + bucketLRange * centerBias;
+    
+    // Choose a chroma from the appropriate bucket, with some randomness
+    const bucketCRange = toneBucket.cMax - toneBucket.cMin;
+    const chromaBias = Math.random() * 0.8 + 0.1; // 0.1-0.9 range for variety
+    const baseChroma = toneBucket.cMin + bucketCRange * chromaBias;
     
     // Adjust chroma based on preference
     let chromaAdjustment = 1.0;
@@ -225,13 +345,9 @@ function generateTemplateBasedPalette(
         chromaAdjustment = 1.0;
     }
     
-    const newChroma = Math.max(10, Math.min(120, 
-      baseLch.c * chromaMultiplier * chromaAdjustment
-    ));
-    
-    // Ensure lightness remains in valid range and is well-distributed
-    const newLightness = Math.max(10, Math.min(95, 
-      baseLch.l + lightnessOffset
+    // Apply chroma adjustment ensuring it stays in valid range
+    const newChroma = Math.max(toneBucket.cMin, Math.min(toneBucket.cMax, 
+      baseChroma * chromaAdjustment
     ));
     
     // Add new color to palette
@@ -255,17 +371,17 @@ function optimizePalette(
   toneDistribution: string,
   saturationPreference: string
 ): LCH[] {
-  // Clone the initial palette to avoid mutations
+  // Create a copy to work with
   let currentPalette = JSON.parse(JSON.stringify(initialPalette));
-  let bestPalette = JSON.parse(JSON.stringify(initialPalette));
+  let bestPalette = JSON.parse(JSON.stringify(currentPalette));
   
-  // Calculate initial scores
+  // Initialize scores
   let currentHarmonyScore = calculateHarmonyScore(currentPalette, harmonyType);
   let currentContrastScore = calculateContrastScore(currentPalette);
   let currentToneScore = calculateToneDistributionScore(currentPalette, toneDistribution);
   let currentSaturationScore = calculateSaturationScore(currentPalette, saturationPreference);
   
-  // Overall score calculation with improvements
+  // Calculate combined score - lower is better
   let currentScore = calculateOverallScore(
     currentHarmonyScore, 
     currentContrastScore, 
@@ -277,32 +393,33 @@ function optimizePalette(
   
   let bestScore = currentScore;
   
-  // Modified simulated annealing parameters
-  const initialTemperature = 150.0;  // Higher initial temperature for more exploration
-  const finalTemperature = 0.01;     // Lower final temperature for better convergence
-  const coolingRate = 0.92;          // Slower cooling for thorough search
-  const iterationsPerTemp = 200;     // More iterations per temperature
+  // Simulated annealing parameters
+  const initialTemperature = 100;
+  const coolingRate = 0.95;
+  const minTemperature = 0.1;
+  const iterationsPerTemperature = 100;
   
-  // Start the simulated annealing process
+  // Main optimization loop
   let temperature = initialTemperature;
+  let totalIterations = 0;
   
-  while (temperature > finalTemperature) {
-    for (let iteration = 0; iteration < iterationsPerTemp; iteration++) {
-      // Create a neighbor solution by modifying one color slightly
-      const neighbor = createNeighborSolution(
+  while (temperature > minTemperature && totalIterations < 2000) {
+    for (let i = 0; i < iterationsPerTemperature; i++) {
+      // Create a neighboring solution with temperature-based modifications
+      const neighborPalette = createNeighborSolution(
         currentPalette, 
         temperature,
         harmonyType,
         saturationPreference
       );
       
-      // Calculate scores for the neighbor
-      const neighborHarmonyScore = calculateHarmonyScore(neighbor, harmonyType);
-      const neighborContrastScore = calculateContrastScore(neighbor);
-      const neighborToneScore = calculateToneDistributionScore(neighbor, toneDistribution);
-      const neighborSaturationScore = calculateSaturationScore(neighbor, saturationPreference);
+      // Calculate new scores
+      const neighborHarmonyScore = calculateHarmonyScore(neighborPalette, harmonyType);
+      const neighborContrastScore = calculateContrastScore(neighborPalette);
+      const neighborToneScore = calculateToneDistributionScore(neighborPalette, toneDistribution);
+      const neighborSaturationScore = calculateSaturationScore(neighborPalette, saturationPreference);
       
-      // Overall score with improved weighting
+      // Calculate combined score
       const neighborScore = calculateOverallScore(
         neighborHarmonyScore, 
         neighborContrastScore, 
@@ -312,16 +429,12 @@ function optimizePalette(
         saturationPreference
       );
       
-      // Decide whether to accept the neighbor solution
-      const delta = neighborScore - currentScore;
+      // Determine if we should accept this solution
+      const acceptProbability = Math.exp((currentScore - neighborScore) / temperature);
       
-      // Accept if better, or with probability based on temperature
-      // Using a modified acceptance probability function for better results
-      const acceptanceProbability = Math.exp(-Math.abs(delta) / (temperature * 0.08));
-      
-      if (delta < 0 || Math.random() < acceptanceProbability) {
+      if (neighborScore < currentScore || Math.random() < acceptProbability) {
         // Accept the new solution
-        currentPalette = neighbor;
+        currentPalette = neighborPalette;
         currentScore = neighborScore;
         currentHarmonyScore = neighborHarmonyScore;
         currentContrastScore = neighborContrastScore;
@@ -336,32 +449,35 @@ function optimizePalette(
       }
     }
     
-    // Cool the temperature
+    // Cool down the temperature
     temperature *= coolingRate;
+    totalIterations += iterationsPerTemperature;
   }
   
-  // Apply post-processing improvements in a specific order
+  // Apply additional post-processing steps
+  let optimizedPalette = bestPalette;
   
-  // 1. Don't modify the base color
-  bestPalette[0] = initialPalette[0];
+  // Enhance saturation if needed
+  if (saturationPreference === 'vibrant') {
+    optimizedPalette = enhanceSaturation(optimizedPalette, saturationPreference);
+  }
   
-  // 2. First enhance saturation to avoid muddy colors
-  bestPalette = enhanceSaturation(bestPalette, saturationPreference);
-  
-  // 3. Apply final adjustments for tone distribution
-  bestPalette = adjustToneDistribution(bestPalette, toneDistribution);
-  
-  // 4. Apply final adjustments for better contrast last
+  // Enhance contrast if needed
   if (contrastEnhance) {
-    bestPalette = enhanceContrastPostProcess(bestPalette);
+    optimizedPalette = enhanceContrastPostProcess(optimizedPalette);
   }
   
-  return bestPalette;
+  // Make final tone adjustments for better distribution
+  optimizedPalette = adjustToneDistribution(optimizedPalette, toneDistribution);
+  
+  // Apply white/black replacement if needed for anchor colors
+  optimizedPalette = addNeutralAnchors(optimizedPalette);
+  
+  return optimizedPalette;
 }
 
 /**
- * Calculate overall score with improved weighting that prioritizes vibrance and contrast
- * Lower is better
+ * Calculate a weighted overall score for the palette
  */
 function calculateOverallScore(
   harmonyScore: number,
@@ -371,51 +487,41 @@ function calculateOverallScore(
   contrastEnhance: boolean,
   saturationPreference: string
 ): number {
-  // Dynamic weights with stronger emphasis on saturation and contrast
-  let harmonyWeight = 0.25;
-  let contrastWeight = contrastEnhance ? 0.35 : 0.3;
+  // Dynamic weights based on preferences
+  let harmonyWeight = 0.35;
+  let contrastWeight = contrastEnhance ? 0.4 : 0.3;
   let toneWeight = 0.15;
-  let saturationWeight = 0.25; // Increased default weight for saturation
+  let saturationWeight = 0.15;
   
-  // Adjust weights based on saturation preference
+  // Adjust weights for vibrant palettes to focus more on saturation
   if (saturationPreference === 'vibrant') {
-    saturationWeight = 0.35; // Much higher weight for saturation in vibrant palettes
-    harmonyWeight = 0.20;
-    toneWeight = 0.10;
-  } else if (saturationPreference === 'muted') {
-    saturationWeight = 0.30;
-    harmonyWeight = 0.25;
-    contrastWeight = 0.30;
-    toneWeight = 0.15;
+    harmonyWeight = 0.3;
+    saturationWeight = 0.25;
+    toneWeight = 0.1;
   }
   
-  // Ensure weights sum to 1.0
-  const totalWeight = harmonyWeight + contrastWeight + toneWeight + saturationWeight;
+  // Adjust weights for muted palettes to focus more on tone distribution
+  if (saturationPreference === 'muted') {
+    harmonyWeight = 0.3;
+    saturationWeight = 0.1;
+    toneWeight = 0.25;
+  }
   
-  harmonyWeight /= totalWeight;
-  contrastWeight /= totalWeight;
-  toneWeight /= totalWeight;
-  saturationWeight /= totalWeight;
+  // Note: Lower harmony/tone/saturation scores are better, higher contrast is better
+  // For contrast, transform to make it consistent (lower is better)
+  const contrastFactor = 10 / Math.max(contrastScore, 1);
   
-  // Invert contrast score since higher is better but we want lower overall score
-  const invertedContrastScore = 60 / (contrastScore + 5);
-  
-  // Apply a stronger non-linear penalty for low saturation (muddy colors)
-  const adjustedSaturationScore = 
-    saturationPreference === 'vibrant' 
-      ? Math.pow(saturationScore, 1.5) // Exponential penalty for vibrant preference
-      : saturationScore;
-  
+  // Calculate weighted score (lower is better)
   return (
     (harmonyScore * harmonyWeight) + 
-    (invertedContrastScore * contrastWeight) + 
+    (contrastFactor * contrastWeight) + 
     (toneScore * toneWeight) +
-    (adjustedSaturationScore * saturationWeight)
+    (saturationScore * saturationWeight)
   );
 }
 
 /**
- * Create a slightly modified version of the current palette with improved modifications
+ * Create a neighboring solution by making small changes to the palette
  */
 function createNeighborSolution(
   palette: LCH[],
@@ -423,747 +529,559 @@ function createNeighborSolution(
   harmonyType: string,
   saturationPreference: string
 ): LCH[] {
-  // Clone the palette
+  // Create a copy to modify
   const neighbor = JSON.parse(JSON.stringify(palette));
   
-  // Random position to modify (but never the first/base color)
-  const posToModify = 1 + Math.floor(Math.random() * (palette.length - 1));
+  // Number of modifications depends on temperature
+  const numModifications = Math.max(1, Math.floor(temperature / 25));
   
-  // Smart property selection with improved probabilities for vibrant colors
-  let propertyProbabilities = { hue: 0.25, chroma: 0.45, lightness: 0.30 };
-  
-  // Adjust probabilities based on harmony type
-  if (harmonyType === 'monochromatic') {
-    propertyProbabilities = { hue: 0.05, chroma: 0.5, lightness: 0.45 };
-  } else if (harmonyType === 'analogous') {
-    propertyProbabilities = { hue: 0.35, chroma: 0.4, lightness: 0.25 };
-  }
-  
-  // Adjust probabilities based on saturation preference
-  if (saturationPreference === 'vibrant') {
-    propertyProbabilities.chroma = 0.5;
-    propertyProbabilities.hue = 0.25;
-    propertyProbabilities.lightness = 0.25;
-  } else if (saturationPreference === 'muted') {
-    propertyProbabilities.chroma = 0.5;
-    propertyProbabilities.hue = 0.15;
-    propertyProbabilities.lightness = 0.35;
-  }
-  
-  // Randomly select a property based on probabilities
-  const rand = Math.random();
-  let propertyToModify: 'hue' | 'chroma' | 'lightness';
-  
-  if (rand < propertyProbabilities.hue) {
-    propertyToModify = 'hue';
-  } else if (rand < propertyProbabilities.hue + propertyProbabilities.chroma) {
-    propertyToModify = 'chroma';
-  } else {
-    propertyToModify = 'lightness';
-  }
-  
-  // Scale adjustments based on temperature (larger changes at higher temp)
-  const tempScale = temperature / 100;
-  
-  if (propertyToModify === 'hue' && harmonyType !== 'monochromatic') {
-    // Adjust hue with more nuanced scaling based on harmony type
-    let hueAdjustmentRange = tempScale * 20; // Default
+  // Apply random modifications
+  for (let i = 0; i < numModifications; i++) {
+    // Choose a random color to modify, but keep first color more stable
+    const colorIndex = Math.random() < 0.7 ? 
+      Math.floor(Math.random() * (neighbor.length - 1)) + 1 : 
+      Math.floor(Math.random() * neighbor.length);
     
-    if (harmonyType === 'complementary' || harmonyType === 'splitComplementary') {
-      hueAdjustmentRange = tempScale * 10; // More precise for complementary
-    } else if (harmonyType === 'analogous') {
-      hueAdjustmentRange = tempScale * 25; // Wider for analogous
-    }
+    // Choose random attribute to modify: lightness, chroma, or hue
+    const attribute = Math.random();
     
-    const hueChange = (Math.random() * 2 - 1) * hueAdjustmentRange;
-    neighbor[posToModify].h = ((neighbor[posToModify].h + hueChange) % 360 + 360) % 360;
-  } 
-  else if (propertyToModify === 'chroma') {
-    // Adjust chroma with strong bias toward higher values to avoid muddy colors
-    let chromaAdjustmentRangePositive = tempScale * 30;  // Much higher for better exploration
-    let chromaAdjustmentRangeNegative = tempScale * 15;
+    // Get the selected color
+    const color = neighbor[colorIndex];
     
-    // Bias for saturation preference
+    // Normalize temperature to 0-1 scale for delta calculation
+    const normalizedTemp = Math.min(1.0, temperature / 100);
+    
+    // Modify the selected attribute
+    if (attribute < 0.4) {
+      // Modify lightness - more variance at higher temperatures
+      const lightnessRange = 20 * normalizedTemp;
+      const lightnessDelta = (Math.random() * 2 - 1) * lightnessRange;
+      
+      // Get the tone bucket for this position
+      let minL = 10;
+      let maxL = 95;
+      
+      // Different constraints for first few colors to ensure good structure
+      if (colorIndex === 0) {
+        // First color - light anchor
+        minL = 65;
+        maxL = 95;
+      } else if (colorIndex === 1) {
+        // Second color - dark anchor
+        minL = 10;
+        maxL = 35;
+      }
+      
+      // Apply change with bounds
+      color.l = Math.max(minL, Math.min(maxL, color.l + lightnessDelta));
+      
+    } else if (attribute < 0.7) {
+      // Modify chroma - more variance at higher temperatures
+      const chromaRange = 30 * normalizedTemp;
+      const chromaDelta = (Math.random() * 2 - 1) * chromaRange;
+      
+      // Get min/max chroma based on saturation preference
+      let minC = 10;
+      let maxC = 80;
+      
     if (saturationPreference === 'vibrant') {
-      // For vibrant, heavily bias toward increases
-      chromaAdjustmentRangePositive = tempScale * 40;
-      chromaAdjustmentRangeNegative = tempScale * 5;
+        minC = 30;
+        maxC = 120;
     } else if (saturationPreference === 'muted') {
-      // For muted, moderate bias toward decreases
-      chromaAdjustmentRangePositive = tempScale * 15;
-      chromaAdjustmentRangeNegative = tempScale * 20;
+        minC = 10;
+        maxC = 60;
+      }
+      
+      // Apply change with bounds
+      color.c = Math.max(minC, Math.min(maxC, color.c + chromaDelta));
+      
+    } else {
+      // Modify hue - with constraints based on harmony type
+      const hueRange = 30 * normalizedTemp;
+      let hueDelta = (Math.random() * 2 - 1) * hueRange;
+      
+      // For monochromatic, keep hues closer together
+      if (harmonyType === 'monochromatic') {
+        hueDelta *= 0.2; // Much smaller hue changes
+      }
+      
+      // For other harmony types, try to maintain harmony structure somewhat
+      if (harmonyType !== 'monochromatic' && colorIndex > 0) {
+        // Get the template for this harmony type
+        const template = HARMONY_TEMPLATES[harmonyType as keyof typeof HARMONY_TEMPLATES] || 
+                        HARMONY_TEMPLATES.analogous;
+        
+        // Get ideal hue offset for this position (if defined)
+        const idealHueOffset = template.hueOffsets?.[colorIndex];
+        
+        if (idealHueOffset !== undefined) {
+          // Calculate the current offset from base hue
+          const baseHue = palette[0].h;
+          const currentHue = color.h;
+          const currentOffset = ((currentHue - baseHue + 360) % 360);
+          
+          // Calculate how far from ideal offset
+          const idealOffset = idealHueOffset;
+          const offsetDifference = ((currentOffset - idealOffset + 360) % 360);
+          
+          // If the offset is far from ideal, bias the delta to move toward ideal
+          if (Math.abs(offsetDifference) > 20 && Math.abs(offsetDifference) < 340) {
+            const direction = offsetDifference > 180 ? 1 : -1;
+            hueDelta = Math.abs(hueDelta) * direction * 0.5 + hueDelta * 0.5;
+          }
+        }
+      }
+      
+      // Apply change with 0-360 bounds
+      color.h = ((color.h + hueDelta) % 360 + 360) % 360;
     }
-    
-    // Generate a change value with appropriate bias
-    let chromaChange;
-    
-    // For colors with low chroma, strongly bias toward increase
-    if (neighbor[posToModify].c < 50) {
-      // Strong bias toward increase for low-chroma colors
-      const randBias = Math.random() * 0.8 + 0.2; // 0.2 to 1.0
-      chromaChange = randBias * chromaAdjustmentRangePositive;
-    } 
-    // For high-chroma colors in muted palettes, bias toward decrease
-    else if (saturationPreference === 'muted' && neighbor[posToModify].c > 60) {
-      const randBias = -(Math.random() * 0.8 + 0.2);  // -0.2 to -1.0
-      chromaChange = randBias * chromaAdjustmentRangeNegative;
-    }
-    // Otherwise, bias toward increase for vibrant palettes
-    else if (saturationPreference === 'vibrant') {
-      const randBias = Math.random() * 1.4 - 0.4; // -0.4 to 1.0 (70% chance of increase)
-      chromaChange = randBias * 
-        (randBias > 0 ? chromaAdjustmentRangePositive : chromaAdjustmentRangeNegative);
-    }
-    // Otherwise, normal distribution around 0
-    else {
-      chromaChange = (Math.random() * 2 - 1) * 
-        (Math.random() < 0.5 ? chromaAdjustmentRangePositive : chromaAdjustmentRangeNegative);
-    }
-    
-    // Apply change with appropriate limits based on preference
-    const minChroma = saturationPreference === 'muted' ? 15 : 40;  // Higher minimum to avoid muddy colors
-    const maxChroma = saturationPreference === 'vibrant' ? 150 : 110;
-    
-    neighbor[posToModify].c = Math.max(minChroma, Math.min(maxChroma, 
-      neighbor[posToModify].c + chromaChange
-    ));
-  } 
-  else {
-    // Adjust lightness with awareness of tone distribution and hue
-    const lightnessAdjustmentRange = tempScale * 20;
-    const lightnessChange = (Math.random() * 2 - 1) * lightnessAdjustmentRange;
-    
-    // Apply change with limits that depend on position and hue
-    const hue = neighbor[posToModify].h;
-    
-    // Adjust lightness ranges based on hue to maximize chroma potential
-    let minLightness = 5;
-    let maxLightness = 95;
-    
-    // Yellows need higher lightness
-    if (hue > 40 && hue < 80) {
-      minLightness = 60;
-    }
-    // Reds work better at lower to mid lightness
-    else if ((hue >= 355 || hue <= 10)) {
-      maxLightness = 70;
-    }
-    
-    // Apply position-based constraints too
-    const position = posToModify / (palette.length - 1);
-    minLightness = Math.max(minLightness, 5 + position * 15);
-    maxLightness = Math.min(maxLightness, 100 - (1 - position) * 15);
-    
-    neighbor[posToModify].l = Math.max(minLightness, Math.min(maxLightness, 
-      neighbor[posToModify].l + lightnessChange
-    ));
   }
   
   return neighbor;
 }
 
 /**
- * Enhance saturation to avoid muddy colors
+ * Enhance the saturation (chroma) of colors based on preference
  */
 function enhanceSaturation(palette: LCH[], preference: string): LCH[] {
-  const enhanced = JSON.parse(JSON.stringify(palette));
+  // Create a copy to modify
+  const result = JSON.parse(JSON.stringify(palette));
   
-  // Determine target chroma ranges based on preference with higher minimums
-  let minTargetChroma: number;
-  let maxTargetChroma: number;
-  
-  switch (preference) {
-    case 'vibrant':
-      minTargetChroma = 70;  // Much higher minimum for vibrant palettes
-      maxTargetChroma = 150; // Much higher maximum
-      break;
-    case 'muted':
-      minTargetChroma = 25;  // Higher minimum even for muted (to avoid true muddiness)
-      maxTargetChroma = 60;
-      break;
-    case 'balanced':
-    default:
-      minTargetChroma = 45;  // Higher minimum for balanced palettes
-      maxTargetChroma = 110;
-      break;
-  }
-  
-  // For monochromatic palettes, ensure more variation in chroma
-  const isMonochromatic = palette.every(color => 
-    Math.abs(color.h - palette[0].h) < 15 || 
-    Math.abs(color.h - palette[0].h) > 345
-  );
-  
-  if (isMonochromatic) {
-    for (let i = 1; i < enhanced.length; i++) {
-      // Create a chroma gradient for monochromatic palettes
-      const position = i / (enhanced.length - 1);
-      const targetChroma = minTargetChroma + (maxTargetChroma - minTargetChroma) * (1 - position);
-      
-      // Don't force decrease if already above minimum
-      if (enhanced[i].c < targetChroma) {
-        enhanced[i].c = targetChroma;
+  // Adjust each color's chroma based on preference and its lightness
+  for (let i = 0; i < result.length; i++) {
+    const color = result[i];
+    
+    // Skip first two colors if they are intended as light/dark anchors
+    if (i <= 1 && ((color.l > 80) || (color.l < 25))) {
+      continue;
+    }
+    
+    // Different chroma targets based on lightness and preference
+    let targetChroma = 50; // Default mid-value
+    let chromaRange = 15;  // Default variation
+    
+    if (preference === 'vibrant') {
+      // Vibrant colors: high chroma especially in mid-tones
+      if (color.l >= 65) {
+        // Light colors - moderate chroma
+        targetChroma = 40;
+        chromaRange = 20;
+      } else if (color.l <= 35) {
+        // Dark colors - moderate to high chroma
+        targetChroma = 50;
+        chromaRange = 25;
+      } else {
+        // Mid-tones - high chroma
+        targetChroma = 80;
+        chromaRange = 30;
       }
+    } else if (preference === 'muted') {
+      // Muted colors: lower chroma across the board
+      if (color.l >= 70) {
+        // Light muted - very low chroma
+        targetChroma = 15;
+        chromaRange = 10;
+      } else if (color.l <= 30) {
+        // Dark muted - low chroma
+        targetChroma = 20;
+        chromaRange = 15;
+      } else {
+        // Mid-tones muted - moderate chroma
+        targetChroma = 30;
+        chromaRange = 20;
     }
   } else {
-    // Process each color except the first/base color
-    for (let i = 1; i < enhanced.length; i++) {
-      const color = enhanced[i];
-      
-      // If chroma is below minimum, boost it aggressively
-      if (color.c < minTargetChroma) {
-        const boost = (minTargetChroma - color.c) * 1.2; // Stronger boost factor
-        color.c = Math.min(maxTargetChroma, color.c + boost);
+      // Balanced colors: moderate chroma that varies with lightness
+      if (color.l >= 75) {
+        // Light balanced - low chroma
+        targetChroma = 20;
+        chromaRange = 15;
+      } else if (color.l <= 30) {
+        // Dark balanced - moderate chroma
+        targetChroma = 35;
+        chromaRange = 20;
+      } else {
+        // Mid-tones balanced - moderate to high chroma
+        targetChroma = 55;
+        chromaRange = 25;
       }
-      // If chroma is too high, reduce it slightly, but less aggressively
-      else if (color.c > maxTargetChroma) {
-        const reduction = color.c - maxTargetChroma;
-        color.c = Math.max(minTargetChroma, color.c - reduction * 0.4); // More gentle reduction
-      }
-      
-      // Adjust chroma based on lightness - very dark or light colors need more chroma to pop
-      if (color.l < 30 || color.l > 85) {
-        color.c = Math.min(maxTargetChroma, color.c * 1.2);
-      }
+    }
+    
+    // Add some random variation to avoid mechanical-looking results
+    const randomVariation = (Math.random() * 2 - 1) * chromaRange;
+    
+    // Calculate a new chroma that's a blend between current and target
+    const blendFactor = 0.7; // Weight toward target
+    const newChroma = (color.c * (1 - blendFactor)) + ((targetChroma + randomVariation) * blendFactor);
+    
+    // Apply with reasonable bounds
+    color.c = Math.max(10, Math.min(130, newChroma));
+    
+    // Apply beta distribution for more natural chroma clustering
+    // For vibrant: peak around 60-80
+    // For muted: peak around 20-40
+    // For balanced: peak around 40-60
+    if (preference === 'vibrant') {
+      // Slight bias toward higher values (right-skewed beta)
+      color.c = betaDistAdjust(color.c, 10, 130, 3, 2);
+    } else if (preference === 'muted') {
+      // Slight bias toward lower values (left-skewed beta)
+      color.c = betaDistAdjust(color.c, 10, 70, 2, 3);
+    } else {
+      // Centered beta distribution
+      color.c = betaDistAdjust(color.c, 10, 100, 2.5, 2.5);
     }
   }
   
-  return enhanced;
+  return result;
 }
 
 /**
- * Apply post-processing to enhance contrast between colors
+ * Apply a beta distribution adjustment to a value within a range
+ * Helps create more natural clustering of values
+ */
+function betaDistAdjust(value: number, min: number, max: number, alpha: number, beta: number): number {
+  // Normalize to 0-1 range
+  const normalized = (value - min) / (max - min);
+  
+  // Apply an approximation of beta distribution transformation
+  // Using a polynomial approximation for simplicity
+  let transformed;
+  
+  if (alpha === beta) {
+    // Symmetric distribution, peak at 0.5
+    transformed = 0.5 + (normalized - 0.5) * Math.pow(Math.abs(normalized - 0.5), 0.5);
+  } else if (alpha > beta) {
+    // Right-skewed, peak above 0.5
+    const peakPosition = alpha / (alpha + beta);
+    transformed = normalized < peakPosition
+      ? normalized * (1 + Math.pow(normalized / peakPosition, alpha - 1)) / 2
+      : peakPosition + (normalized - peakPosition) * (1 + Math.pow((normalized - peakPosition) / (1 - peakPosition), beta - 1)) / 2;
+  } else {
+    // Left-skewed, peak below 0.5
+    const peakPosition = alpha / (alpha + beta);
+    transformed = normalized > peakPosition
+      ? peakPosition + (normalized - peakPosition) * (1 + Math.pow((normalized - peakPosition) / (1 - peakPosition), alpha - 1)) / 2
+      : normalized * (1 + Math.pow(normalized / peakPosition, beta - 1)) / 2;
+  }
+  
+  // Convert back to original range
+  return min + transformed * (max - min);
+}
+
+/**
+ * Enhance contrast between adjacent colors in the palette
  */
 function enhanceContrastPostProcess(palette: LCH[]): LCH[] {
-  const enhanced = JSON.parse(JSON.stringify(palette));
+  // Create a copy to modify
+  const result = JSON.parse(JSON.stringify(palette));
   
-  // Skip if palette is too small
-  if (palette.length < 3) return enhanced;
+  // Sort by lightness to work with
+  result.sort((a, b) => a.l - b.l);
   
-  // Implement our own version of calculateDeltaE instead of importing it
+  // Calculate local deltaE function for perceptual distance
   function localCalculateDeltaE(lch1: LCH, lch2: LCH): number {
-    // Simple Delta E implementation for contrast calculation
-    const dL = lch1.l - lch2.l;
-    const dC = lch1.c - lch2.c;
+    // Simple approximation using weighted Euclidean distance
+    const deltaL = lch1.l - lch2.l;
     
     // Calculate hue difference accounting for circularity
-    let dH = Math.abs(lch1.h - lch2.h);
-    if (dH > 180) dH = 360 - dH;
+    let deltaH = Math.abs(lch1.h - lch2.h);
+    if (deltaH > 180) deltaH = 360 - deltaH;
     
-    // Weight factors to prioritize lightness differences
+    // Normalize hue difference by considering chroma
+    // Low chroma = hue matters less
+    const averageC = (lch1.c + lch2.c) / 2;
+    const normalizedDeltaH = deltaH * (averageC / 50);
+    
+    // Calculate chroma difference
+    const deltaC = lch1.c - lch2.c;
+    
+    // Weight lightness more heavily as it's the most perceptually important
     return Math.sqrt(
-      Math.pow(dL * 1.5, 2) + 
-      Math.pow(dC * 1.2, 2) + 
-      Math.pow(dH * 0.8, 2)
+      Math.pow(deltaL * 2.5, 2) + 
+      Math.pow(deltaC * 1.2, 2) + 
+      Math.pow(normalizedDeltaH * 0.8, 2)
     );
   }
   
-  // 1. Check and fix contrast between all pairs using improved contrast model
-  const MIN_CONTRAST = 18; // Higher minimum delta E for more distinct colors
+  // First ensure adequate lightness separation
+  const MIN_L_DIFF = 12; // Minimum lightness difference between adjacent colors
   
-  // Multiple iterations to improve contrast
-  for (let iteration = 0; iteration < 4; iteration++) {
-    let improvements = 0;
+  for (let i = 1; i < result.length; i++) {
+    const prevColor = result[i-1];
+    const currColor = result[i];
     
-    // Check each pair
-    for (let i = 0; i < enhanced.length - 1; i++) {
-      for (let j = i + 1; j < enhanced.length; j++) {
-        const contrast = localCalculateDeltaE(enhanced[i], enhanced[j]);
+    const lDiff = currColor.l - prevColor.l;
+    
+    if (lDiff < MIN_L_DIFF) {
+      // Adjust both colors to maintain average lightness but increase separation
+      const avgL = (prevColor.l + currColor.l) / 2;
+      const adjustment = (MIN_L_DIFF - lDiff) / 2;
+      
+      // Adjust previous color darker, unless it's already very dark
+      if (prevColor.l > 15) {
+        prevColor.l = Math.max(10, prevColor.l - adjustment);
+      }
+      
+      // Adjust current color lighter, unless it's already very light
+      if (currColor.l < 90) {
+        currColor.l = Math.min(95, currColor.l + adjustment);
+      }
+    }
+  }
+  
+  // Now check for overall perceptual contrast and adjust as needed
+  const MIN_DELTA_E = 20; // Minimum perceptual difference
+  
+  for (let i = 0; i < result.length; i++) {
+    for (let j = i + 1; j < result.length; j++) {
+      const color1 = result[i];
+      const color2 = result[j];
+      
+      const deltaE = localCalculateDeltaE(color1, color2);
+      
+      if (deltaE < MIN_DELTA_E) {
+        // Increase contrast if colors are too similar
         
-        // If contrast is too low, try to improve with more aggressive changes
-        if (contrast < MIN_CONTRAST) {
-          improvements++;
-          
-          // Strategy 1: Adjust lightness in opposite directions
-          const lightnessAvg = (enhanced[i].l + enhanced[j].l) / 2;
-          
-          if (lightnessAvg > 50) {
-            // Darker overall, make one lighter and one darker
-            enhanced[i].l = Math.max(15, enhanced[i].l - 10);
-            enhanced[j].l = Math.min(90, enhanced[j].l + 10);
+        // First try adjusting lightness (most effective)
+        if (Math.abs(color1.l - color2.l) < 30) {
+          if (color1.l < color2.l) {
+            // Make color1 darker and color2 lighter
+            if (color1.l > 20) color1.l = Math.max(10, color1.l - 10);
+            if (color2.l < 80) color2.l = Math.min(95, color2.l + 10);
           } else {
-            // Lighter overall, make one darker and one lighter
-            enhanced[i].l = Math.min(90, enhanced[i].l + 10);
-            enhanced[j].l = Math.max(15, enhanced[j].l - 10);
+            // Make color2 darker and color1 lighter
+            if (color2.l > 20) color2.l = Math.max(10, color2.l - 10);
+            if (color1.l < 80) color1.l = Math.min(95, color1.l + 10);
           }
+        }
+        
+        // Then try adjusting chroma if needed
+        if (localCalculateDeltaE(color1, color2) < MIN_DELTA_E) {
+          if (color1.c < color2.c) {
+            // Increase chroma difference
+            color1.c = Math.max(10, color1.c * 0.85);
+            color2.c = Math.min(120, color2.c * 1.15);
+          } else {
+            // Increase chroma difference
+            color2.c = Math.max(10, color2.c * 0.85);
+            color1.c = Math.min(120, color1.c * 1.15);
+          }
+        }
+        
+        // Finally try adjusting hue if still needed
+        if (localCalculateDeltaE(color1, color2) < MIN_DELTA_E) {
+          // Calculate current hue difference
+          let hueDiff = Math.abs(color1.h - color2.h);
+          if (hueDiff > 180) hueDiff = 360 - hueDiff;
           
-          // Strategy 2: Adjust chroma in opposite directions
-          enhanced[i].c = Math.min(150, enhanced[i].c * 1.2);
-          enhanced[j].c = Math.max(20, enhanced[j].c * 0.85);
-          
-          // Strategy 3: If colors have similar hues, push them apart
-          const hueDiff = Math.min(
-            Math.abs(enhanced[i].h - enhanced[j].h),
-            360 - Math.abs(enhanced[i].h - enhanced[j].h)
-          );
-          
-          if (hueDiff < 20) {
-            // Push hues apart, but keep them in their general region
-            const pushAmount = 10;
-            enhanced[i].h = (enhanced[i].h - pushAmount + 360) % 360;
-            enhanced[j].h = (enhanced[j].h + pushAmount) % 360;
+          if (hueDiff < 60) {
+            // Increase hue separation
+            const hueAdjustment = Math.min(30, (60 - hueDiff) / 2);
+            
+            // Move hues apart in opposite directions
+            color1.h = ((color1.h - hueAdjustment) % 360 + 360) % 360;
+            color2.h = ((color2.h + hueAdjustment) % 360 + 360) % 360;
           }
         }
       }
     }
-    
-    // Stop if no more improvements needed
-    if (improvements === 0) break;
   }
   
-  // 2. Ensure lightness values are well-distributed (except the base color)
-  const sortable = enhanced.slice(1);
+  // Unsort to maintain original order
+  // This assumes the caller wants the original ordering preserved
+  result.sort((a, b) => palette.findIndex(p => p === a) - palette.findIndex(p => p === b));
   
-  // Sort by lightness
-  sortable.sort((a, b) => a.l - b.l);
-  
-  // Ensure minimum lightness separation between adjacent colors
-  const MIN_LIGHTNESS_DIFF = 12;
-  
-  for (let i = 1; i < sortable.length; i++) {
-    const prevL = sortable[i-1].l;
-    const currL = sortable[i].l;
-    
-    if (currL - prevL < MIN_LIGHTNESS_DIFF) {
-      // Move current color up to ensure minimum difference
-      sortable[i].l = prevL + MIN_LIGHTNESS_DIFF;
-      
-      // Cap at maximum lightness
-      sortable[i].l = Math.min(95, sortable[i].l);
-    }
-  }
-  
-  // If any adjustments exceeded bounds, re-distribute
-  if (sortable[sortable.length - 1].l > 95) {
-    // Recalculate even distribution within bounds
-    const minL = Math.max(10, sortable[0].l);
-    const maxL = 95;
-    const range = maxL - minL;
-    
-    for (let i = 0; i < sortable.length; i++) {
-      // Distribute evenly within available range
-      sortable[i].l = minL + (range * i / (sortable.length - 1 || 1));
-    }
-  }
-  
-  // Put the modified colors back in the palette
-  for (let i = 0; i < sortable.length; i++) {
-    enhanced[i + 1] = sortable[i];
-  }
-  
-  // 3. Final pass to push chroma up for any colors that are still low
-  for (let i = 1; i < enhanced.length; i++) {
-    if (enhanced[i].c < 40) {
-      enhanced[i].c = Math.min(100, enhanced[i].c * 1.5);
-    }
-  }
-  
-  return enhanced;
+  return result;
 }
 
 /**
- * Adjust tone distribution based on preference with improved curve functions
+ * Adjust the tone distribution to fit the specified preference
  */
 function adjustToneDistribution(palette: LCH[], preference: string): LCH[] {
-  if (palette.length < 3) return palette;
+  // Create a copy to modify
+  const result = JSON.parse(JSON.stringify(palette));
   
-  const adjusted = JSON.parse(JSON.stringify(palette));
+  // Define target ranges for each preference
+  let lightTarget = { min: 70, max: 90 };
+  let darkTarget = { min: 10, max: 30 };
+  let midTarget = { min: 40, max: 60 };
   
-  // Don't change the base color
-  const sortable = adjusted.slice(1);
-  
-  // Sort by lightness
-  sortable.sort((a, b) => a.l - b.l);
-  
-  // Adjust lightness based on preference with more natural distribution
-  for (let i = 0; i < sortable.length; i++) {
-    const ratio = i / (sortable.length - 1 || 1);
-    
-    let targetL;
-    if (preference === 'even') {
-      // Even distribution with slight S-curve for more natural feel
-      targetL = 15 + 70 * Math.pow(Math.sin(ratio * Math.PI - Math.PI/2) * 0.5 + 0.5, 0.8);
-    } 
-    else if (preference === 'dark-bias') {
-      // More dark colors, fewer light ones with exponential curve
-      targetL = 10 + 85 * Math.pow(ratio, 1.8);
-    } 
-    else if (preference === 'light-bias') {
-      // More light colors, fewer dark ones with log curve
-      targetL = 20 + 75 * Math.pow(ratio, 0.5);
-    }
-    else {
-      // Default to even distribution
-      targetL = 15 + ratio * 70;
-    }
-    
-    // Blend current lightness with target (65% target, 35% current)
-    // This preserves some of the original character while ensuring good distribution
-    sortable[i].l = sortable[i].l * 0.35 + targetL * 0.65;
+  // Adjust targets based on preference
+  switch (preference) {
+    case 'dark-bias':
+      // Shift all targets darker
+      lightTarget = { min: 65, max: 85 };
+      darkTarget = { min: 5, max: 25 };
+      midTarget = { min: 25, max: 50 };
+        break;
+        
+    case 'light-bias':
+      // Shift all targets lighter
+      lightTarget = { min: 75, max: 95 };
+      darkTarget = { min: 15, max: 35 };
+      midTarget = { min: 50, max: 75 };
+        break;
+        
+    default: // 'even'
+      // Keep balanced targets
+        break;
   }
   
-  // Put the modified colors back in the palette
-  for (let i = 0; i < sortable.length; i++) {
-    adjusted[i + 1] = sortable[i];
+  // Sort colors by lightness
+  result.sort((a, b) => a.l - b.l);
+  
+  // Handle based on palette size
+  if (result.length >= 5) {
+    // For 5+ colors, ensure classic distribution: one very light, one very dark, rest mid-tones
+    
+    // Adjust darkest color
+    result[0].l = Math.max(darkTarget.min, Math.min(darkTarget.max, result[0].l));
+    
+    // Adjust lightest color
+    result[result.length - 1].l = Math.max(lightTarget.min, Math.min(lightTarget.max, result[result.length - 1].l));
+    
+    // Distribute mid-tones evenly
+    const midCount = result.length - 2;
+    for (let i = 0; i < midCount; i++) {
+      const normalizedPos = i / (midCount - 1 || 1); // 0 to 1
+      const targetL = midTarget.min + normalizedPos * (midTarget.max - midTarget.min);
+      result[i + 1].l = targetL;
+    }
+  } else if (result.length === 4) {
+    // For 4 colors: one dark, one light, two mid-tones
+    result[0].l = Math.max(darkTarget.min, Math.min(darkTarget.max, result[0].l));
+    result[3].l = Math.max(lightTarget.min, Math.min(lightTarget.max, result[3].l));
+    
+    // Two mid-tones, one darker and one lighter
+    result[1].l = midTarget.min + (midTarget.max - midTarget.min) * 0.3;
+    result[2].l = midTarget.min + (midTarget.max - midTarget.min) * 0.7;
+  } else if (result.length === 3) {
+    // For 3 colors: one dark, one mid, one light
+    result[0].l = Math.max(darkTarget.min, Math.min(darkTarget.max, result[0].l));
+    result[1].l = Math.max(midTarget.min, Math.min(midTarget.max, result[1].l));
+    result[2].l = Math.max(lightTarget.min, Math.min(lightTarget.max, result[2].l));
+  } else if (result.length === 2) {
+    // For 2 colors: one dark, one light with good contrast
+    result[0].l = Math.max(darkTarget.min, Math.min(darkTarget.max, result[0].l));
+    result[1].l = Math.max(lightTarget.min, Math.min(lightTarget.max, result[1].l));
   }
   
-  return adjusted;
+  // Unsort to restore original order
+  result.sort((a, b) => palette.findIndex(p => p === a) - palette.findIndex(p => p === b));
+  
+  return result;
 }
 
 /**
- * Utility function to adapt the new perceptual palette generation
- * to match the existing function signature for generateColorPalette
+ * Add neutral anchors to palette for better structure
+ * This potentially replaces some colors with neutral anchors if beneficial
+ */
+function addNeutralAnchors(palette: LCH[]): LCH[] {
+  // We only want to do this sometimes as a final touch (30% chance)
+  if (Math.random() > 0.3) {
+    return palette;
+  }
+  
+  // Create a deep copy of the palette
+  const result = JSON.parse(JSON.stringify(palette));
+  
+  // Analyze the palette
+  const lightnessValues = result.map(color => color.l);
+  const chromaValues = result.map(color => color.c);
+  
+  // Check if we need a light anchor (if no color is light enough)
+  const hasLightAnchor = lightnessValues.some(l => l > 75);
+  
+  // Check if we need a dark anchor (if no color is dark enough)
+  const hasDarkAnchor = lightnessValues.some(l => l < 25);
+  
+  // Calculate average chroma to determine if palette is vibrant or muted
+  const avgChroma = chromaValues.reduce((sum, c) => sum + c, 0) / chromaValues.length;
+  const isVibrant = avgChroma > 60;
+  
+  // Potentially add a light neutral anchor
+  if (!hasLightAnchor) {
+    // Find the lightest color
+    const lightestIndex = lightnessValues.indexOf(Math.max(...lightnessValues));
+    
+    // Replace it with a light neutral
+    result[lightestIndex] = {
+      l: Math.random() * 10 + 85, // 85-95
+      c: Math.random() * 10 + 5,  // 5-15
+      h: result[lightestIndex].h  // Keep original hue
+    };
+  }
+  
+  // Potentially add a dark neutral anchor
+  if (!hasDarkAnchor) {
+    // Find the darkest color
+    const darkestIndex = lightnessValues.indexOf(Math.min(...lightnessValues));
+    
+    // Replace it with a dark neutral
+    result[darkestIndex] = {
+      l: Math.random() * 10 + 10, // 10-20
+      c: Math.random() * 20 + 10, // 10-30
+      h: result[darkestIndex].h   // Keep original hue
+    };
+  }
+  
+  // For vibrant palettes, ensure at least one truly vibrant color
+  if (isVibrant) {
+    // Find a mid-tone color to make vibrant
+    const midTones = result.filter((color, index) => 
+      color.l > 35 && color.l < 70 && index !== 0 && index !== 1);
+    
+    if (midTones.length > 0) {
+      // Choose a random mid-tone to enhance
+      const midToneIndex = result.indexOf(midTones[Math.floor(Math.random() * midTones.length)]);
+      
+      // Boost its chroma significantly
+      result[midToneIndex].c = Math.min(130, result[midToneIndex].c * 1.5);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Adapter function to ensure backward compatibility with existing code
  */
 export function generateOptimizedPalette(
   baseColor: string,
   options: {
-    paletteType: 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'splitComplementary';
+    paletteType?: string;
     count?: number;
     useAdobeAlgorithm?: boolean;
+    contrastEnhance?: boolean;
+    toneDistribution?: string;
+    saturationPreference?: string;
   }
 ): { hex: string; rgb: any; hsl: any; name?: string }[] {
-  try {
-    // Force vibrant color boosting - this is a direct fix for the muddy colors problem
-    // First convert the base color to a more vibrant version
-    const enhancedBaseColor = boostColorVibrance(baseColor);
-    
-    // Ensure baseColor has a valid format
-    if (!enhancedBaseColor.startsWith('#')) {
-      baseColor = `#${enhancedBaseColor}`;
-    }
-
-    if (!/^#[0-9A-F]{6}$/i.test(enhancedBaseColor)) {
-      console.warn(`Invalid hex color: ${enhancedBaseColor}, defaulting to #3366FF`);
-      baseColor = '#3366FF';
-    } else {
-      baseColor = enhancedBaseColor;
-    }
-    
-    // Customize settings based on harmony type for optimal results
-    let saturationPreference: 'balanced' | 'vibrant' | 'muted';
-    let toneDistribution: 'even' | 'dark-bias' | 'light-bias';
-    
-    // ALWAYS use vibrant for ANY harmony type to avoid muddy colors
-    saturationPreference = 'vibrant';
-    
-    // Updated optimal settings for each harmony type based on aesthetics research
-    switch (options.paletteType) {
-      case 'monochromatic':
-        toneDistribution = 'even';
-        break;
-        
-      case 'complementary':
-        toneDistribution = 'dark-bias';
-        break;
-        
-      case 'analogous':
-        toneDistribution = 'even';
-        break;
-        
-      case 'triadic':
-        toneDistribution = 'dark-bias';
-        break;
-        
-      case 'tetradic':
-        toneDistribution = 'light-bias';
-        break;
-        
-      case 'splitComplementary':
-        toneDistribution = 'even';
-        break;
-        
-      default:
-        toneDistribution = 'even';
-    }
-    
-    // Convert old options format to new config format
-    const config: PaletteConfig = {
-      harmonyType: options.paletteType,
-      count: options.count || 5,
-      contrastEnhance: true,
-      toneDistribution: toneDistribution,
-      saturationPreference: saturationPreference
-    };
-    
-    // Generate multiple palettes and pick the best one for even better results
-    const NUM_ATTEMPTS = 5;  // Increased from 3 to 5 for better exploration
-    let bestPalette: OptimizedPalette | null = null;
-    
-    for (let i = 0; i < NUM_ATTEMPTS; i++) {
-      const generatedPalette = generatePerceptualPalette(baseColor, config);
-      
-      // Modify how we select the best palette - prioritize non-muddy ones
-      // Check if this palette has better score or significantly better saturationScore
-      if (!bestPalette || 
-          generatedPalette.score > bestPalette.score || 
-          (generatedPalette.saturationScore < bestPalette.saturationScore * 0.8)) {
-        bestPalette = generatedPalette;
-      }
-    }
-    
-    if (!bestPalette) {
-      throw new Error("Failed to generate palette");
-    }
-    
-    // Final post-processing to ensure vibrant colors
-    const enhancedColors = bestPalette.colors.map(color => forceVibrantColor(color));
-    bestPalette.colors = enhancedColors;
-    
-    // Convert to the expected return format
-    return bestPalette.colors.map((hexColor, index) => {
-      const tc = tinycolorLib(hexColor);
-      const rgb = tc.toRgb();
-      const hsl = tc.toHsl();
-      
-      // Create more descriptive names based on the harmony type
-      let name: string;
-      if (index === 0) {
-        name = 'Base';
-      } else {
-        if (options.paletteType === 'monochromatic') {
-          name = index < Math.ceil(options.count! / 2) 
-            ? `Shade ${Math.ceil(options.count! / 2) - index}` 
-            : `Tint ${index - Math.floor(options.count! / 2)}`;
-        } else if (options.paletteType === 'complementary' && index === 1) {
-          name = 'Complement';
-        } else if (options.paletteType === 'analogous') {
-          name = index <= Math.floor(options.count! / 2) 
-            ? `Left ${Math.floor(options.count! / 2) - index + 1}` 
-            : `Right ${index - Math.floor(options.count! / 2)}`;
-        } else {
-          name = `Color ${index + 1}`;
-        }
-      }
-      
-      return {
-        hex: hexColor,
-        rgb: rgb,
-        hsl: {
-          h: hsl.h,
-          s: hsl.s * 100,
-          l: hsl.l * 100
-        },
-        name
-      };
-    });
-  } catch (error) {
-    console.error("Error in generateOptimizedPalette:", error);
-    
-    // Create a completely revised fallback with guaranteed vibrant colors
-    const fallbackColors = [];
-    const baseColorObj = tinycolorLib(baseColor);
-    
-    // Add base color
-    fallbackColors.push({
-      hex: baseColorObj.toHexString().toUpperCase(),
-      rgb: baseColorObj.toRgb(),
-      hsl: {
-        h: baseColorObj.toHsl().h,
-        s: baseColorObj.toHsl().s * 100,
-        l: baseColorObj.toHsl().l * 100
-      },
-      name: 'Base'
-    });
-    
-    // Add additional colors with better variations
-    const count = options.count || 5;
-    
-    // NEW APPROACH: Use color palettes with guaranteed high saturation
-    switch (options.paletteType) {
-      case 'monochromatic':
-        // Generate vibrant shades and tints
-        const baseHue = baseColorObj.toHsl().h;
-        
-        for (let i = 1; i < count; i++) {
-          // Generate lightness and saturation so we get a mix of vibrant shades/tints
-          const position = i / (count - 1);
-          const lightness = (position > 0.5) 
-            ? 25 + 55 * (position - 0.5) * 2 // Higher lightness for tints
-            : 65 - 35 * position * 2;        // Lower lightness for shades
-          
-          // Higher saturation for all colors
-          const saturation = Math.min(95, baseColorObj.toHsl().s * 100 + 20);
-          
-          const newColor = tinycolorLib({
-            h: baseHue,
-            s: saturation / 100,
-            l: lightness / 100
-          });
-          
-          fallbackColors.push({
-            hex: newColor.toHexString().toUpperCase(),
-            rgb: newColor.toRgb(),
-            hsl: {
-              h: newColor.toHsl().h,
-              s: newColor.toHsl().s * 100,
-              l: newColor.toHsl().l * 100
-            },
-            name: `Color ${i + 1}`
-          });
-        }
-        break;
-        
-      case 'complementary':
-        // Base color plus complementary with vibrant variants
-        const complement = baseColorObj.clone().spin(180).saturate(20);
-        
-        fallbackColors.push({
-          hex: complement.toHexString().toUpperCase(),
-          rgb: complement.toRgb(),
-          hsl: {
-            h: complement.toHsl().h,
-            s: complement.toHsl().s * 100,
-            l: complement.toHsl().l * 100
-          },
-          name: 'Complement'
-        });
-        
-        // Add variations with guaranteed vibrance
-        if (count > 2) {
-          // Create a lighter variant of base
-          const lighter = baseColorObj.clone().lighten(20).saturate(10);
-          fallbackColors.push({
-            hex: lighter.toHexString().toUpperCase(),
-            rgb: lighter.toRgb(),
-            hsl: {
-              h: lighter.toHsl().h,
-              s: lighter.toHsl().s * 100,
-              l: lighter.toHsl().l * 100
-            },
-            name: 'Color 3'
-          });
-        }
-        
-        if (count > 3) {
-          // Create a lighter variant of complement
-          const lighterComplement = complement.clone().lighten(20).saturate(10);
-          fallbackColors.push({
-            hex: lighterComplement.toHexString().toUpperCase(),
-            rgb: lighterComplement.toRgb(),
-            hsl: {
-              h: lighterComplement.toHsl().h,
-              s: lighterComplement.toHsl().s * 100,
-              l: lighterComplement.toHsl().l * 100
-            },
-            name: 'Color 4'
-          });
-        }
-        
-        if (count > 4) {
-          // Create a darker variant of base with higher saturation
-          const darker = baseColorObj.clone().darken(20).saturate(15);
-          fallbackColors.push({
-            hex: darker.toHexString().toUpperCase(),
-            rgb: darker.toRgb(),
-            hsl: {
-              h: darker.toHsl().h,
-              s: darker.toHsl().s * 100,
-              l: darker.toHsl().l * 100
-            },
-            name: 'Color 5'
-          });
-        }
-        break;
-        
-      default:
-        // For other harmony types, use appropriate angles with high saturation
-        let angle: number;
-        let secondaryAngle: number | null = null;
-        
-        if (options.paletteType === 'analogous') {
-          angle = 30;
-        } else if (options.paletteType === 'triadic') {
-          angle = 120;
-        } else if (options.paletteType === 'tetradic') {
-          angle = 90;
-          secondaryAngle = 180;
-        } else if (options.paletteType === 'splitComplementary') {
-          angle = 150;
-          secondaryAngle = 210;
-        } else {
-          angle = 60; // Default
-        }
-        
-        // Create colors with high saturation
-        for (let i = 1; i < count; i++) {
-          // Determine the angle to use based on position
-          let angleToUse: number;
-          
-          if (secondaryAngle !== null) {
-            // For tetradic and splitComplementary, alternate angles
-            if (i % 3 === 1) angleToUse = angle;
-            else if (i % 3 === 2) angleToUse = secondaryAngle;
-            else angleToUse = 0;
-          } else {
-            // For others, alternate positive and negative angles
-            angleToUse = (i % 2 === 1) ? angle : -angle;
-            
-            // For larger palettes, scale the angles
-            angleToUse *= Math.ceil(i / 2);
-          }
-          
-          // Create a new color with spin + guaranteed vibrance
-          const newColor = baseColorObj.clone()
-            .spin(angleToUse)
-            .saturate(15); // Increase saturation for vibrance
-          
-          // Adjust lightness for better separation
-          if (i % 3 === 0) newColor.lighten(20);
-          else if (i % 3 === 1) newColor.darken(10);
-          
-          fallbackColors.push({
-            hex: newColor.toHexString().toUpperCase(),
-            rgb: newColor.toRgb(),
-            hsl: {
-              h: newColor.toHsl().h,
-              s: newColor.toHsl().s * 100,
-              l: newColor.toHsl().l * 100
-            },
-            name: `Color ${i + 1}`
-          });
-        }
-    }
-    
-    return fallbackColors;
-  }
-}
-
-/**
- * Force a color to be more vibrant by boosting saturation and adjusting lightness
- */
-function forceVibrantColor(hexColor: string): string {
-  const color = tinycolorLib(hexColor);
-  const hsl = color.toHsl();
+  // Map old options to new options
+  const harmonyType = options.paletteType || 'analogous';
+  const count = options.count || 5;
   
-  // Boost saturation significantly
-  hsl.s = Math.min(1.0, hsl.s * 1.4);
-  
-  // Adjust lightness if needed
-  if (hsl.l < 0.2) {
-    hsl.l = 0.2 + (hsl.l * 0.5);
-  } else if (hsl.l > 0.8) {
-    hsl.l = 0.8 - ((1 - hsl.l) * 0.5);
+  // Map old tone/saturation preferences to new format
+  let toneProfile: 'light' | 'balanced' | 'dark' = 'balanced';
+  if (options.toneDistribution === 'light-bias') {
+    toneProfile = 'light';
+  } else if (options.toneDistribution === 'dark-bias') {
+    toneProfile = 'dark';
   }
   
-  return tinycolorLib(hsl).toHexString().toUpperCase();
-}
-
-/**
- * Boost a color's vibrance before using it as a base color
- */
-function boostColorVibrance(hexColor: string): string {
-  const color = tinycolorLib(hexColor);
-  const hsl = color.toHsl();
-  
-  // Boost saturation for more vibrant starting point
-  hsl.s = Math.min(1.0, hsl.s * 1.3 + 0.1);
-  
-  // Ensure lightness is in a good middle range for vibrant colors
-  if (hsl.l < 0.3) {
-    hsl.l = 0.3 + (hsl.l * 0.3);
-  } else if (hsl.l > 0.8) {
-    hsl.l = 0.8 - ((1 - hsl.l) * 0.2);
+  let saturationStyle: 'muted' | 'balanced' | 'vibrant' = 'balanced';
+  if (options.saturationPreference === 'vibrant') {
+    saturationStyle = 'vibrant';
+  } else if (options.saturationPreference === 'muted') {
+    saturationStyle = 'muted';
   }
   
-  return tinycolorLib(hsl).toHexString().toUpperCase();
+  // Generate the palette using the new algorithm
+  return generateBeautifulPalette(baseColor, {
+    harmonyType: harmonyType,
+    count: count,
+    toneProfile: toneProfile,
+    saturationStyle: saturationStyle
+  });
 } 

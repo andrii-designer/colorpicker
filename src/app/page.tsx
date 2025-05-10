@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiRefreshCw, FiArrowRight, FiChevronDown, FiCopy, FiX, FiEdit2, FiMove, FiArrowLeft, FiDownload } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import tinycolor from 'tinycolor2';
-import { generateHarmoniousPalette, analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
-import { generateEnhancedPalette, HarmonyType, EnhancedColorOptions } from '../lib/utils/enhancedColorGeneration';
+import { analyzeColorPalette } from '../lib/utils/colorAnalysisNew';
+import { HarmonyType } from '../lib/utils/enhancedColorGeneration';
 import { generateColorPalette } from '../lib/utils';
+import { generateBeautifulPalette } from '../lib/utils/enhancedPaletteGeneration';
 import ColorDisplay from '../components/ColorPalette/ColorDisplay';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -495,8 +496,16 @@ export default function Home() {
   useEffect(() => {
     if (hasInitializedRef.current) return;
     
-    // Generate initial palette
-    const initialColors = generateHarmoniousPalette('#4080FF', 'analogous', 5);
+    // Use a pleasant blue as the base color
+    const baseColor = '#4080FF';
+    
+    // Generate initial palette using the enhanced beautiful palette generator
+    const initialColors = generateBeautifulPalette(baseColor, {
+      harmonyType: 'analogous',
+      count: 5,
+      saturationStyle: 'balanced',
+      toneProfile: 'balanced'
+    }).map(color => color.hex);
     
     // Set the colors
     setRandomColors(initialColors);
@@ -547,8 +556,32 @@ export default function Home() {
           !['INPUT', 'TEXTAREA'].includes((event.target as HTMLElement)?.tagName)) {
         event.preventDefault(); // Prevent default form submission
         
-        // Generate new palette directly here
-        const newColors = generateHarmoniousPalette('#' + Math.floor(Math.random()*16777215).toString(16), 'analogous', 5);
+        // Select a random harmony type for variety when using Enter key
+        const harmonyTypes: HarmonyType[] = [
+          'analogous', 'monochromatic', 'triad', 'complementary', 
+          'splitComplementary', 'tetrad', 'square'
+        ];
+        const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
+        
+        // Generate a truly random base color
+        const randomHue = Math.floor(Math.random() * 360);
+        const randomSat = 70 + Math.floor(Math.random() * 30); // 70-100% saturation 
+        const randomLit = 45 + Math.floor(Math.random() * 20); // 45-65% lightness
+        const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+        
+        // Use random saturation style and tone profile for more variety
+        const satStyles = ['muted', 'balanced', 'vibrant'];
+        const toneProfiles = ['light', 'balanced', 'dark'];
+        const randomSatStyle = satStyles[Math.floor(Math.random() * satStyles.length)];
+        const randomToneProfile = toneProfiles[Math.floor(Math.random() * toneProfiles.length)];
+        
+        // Generate new random colors using the beautiful palette generator
+        const newColors = generateBeautifulPalette(baseColor, {
+          harmonyType: randomType,
+          count: 5,
+          saturationStyle: randomSatStyle as any,
+          toneProfile: randomToneProfile as any
+        }).map(color => color.hex);
         
         // Add to history
         const newHistory = paletteHistory.slice(0, historyIndex + 1);
@@ -566,7 +599,7 @@ export default function Home() {
           score: analysis.score
         };
         
-        console.log(`Enter key: Generated palette, now at history position ${newHistory.length - 1}`);
+        console.log(`Enter key: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
       }
     };
     
@@ -579,20 +612,31 @@ export default function Home() {
   // Function to generate random palette (button click)
   function handleGenerateRandom() {
     try {
-      // Use the enhanced color generation algorithm with guaranteed vibrant colors
+      // Select a random harmony type for variety
       const harmonyTypes: HarmonyType[] = [
-        'vibrant', 'analogous', 'monochromatic', 'triad', 'complementary', 
+        'analogous', 'monochromatic', 'triad', 'complementary', 
         'splitComplementary', 'tetrad', 'square'
       ];
-      
-      // Select a random harmony type for variety
       const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
       
-      // Generate new random colors with ultra vibrant mode
-      const newColors = generateColorPalette('#' + Math.floor(Math.random()*16777215).toString(16), {
-        paletteType: randomType as any,
-        numColors: 5,
-        highContrast: true // Always use high contrast mode for vibrant colors
+      // Generate a truly random base color
+      const randomHue = Math.floor(Math.random() * 360);
+      const randomSat = 70 + Math.floor(Math.random() * 30); // 70-100% saturation
+      const randomLit = 45 + Math.floor(Math.random() * 20); // 45-65% lightness
+      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      
+      // Use random saturation style and tone profile for more variety
+      const satStyles = ['muted', 'balanced', 'vibrant'];
+      const toneProfiles = ['light', 'balanced', 'dark'];
+      const randomSatStyle = satStyles[Math.floor(Math.random() * satStyles.length)];
+      const randomToneProfile = toneProfiles[Math.floor(Math.random() * toneProfiles.length)];
+      
+      // Generate new random colors using the beautiful palette generator with full configuration
+      const newColors = generateBeautifulPalette(baseColor, {
+        harmonyType: randomType,
+        count: 5,
+        saturationStyle: randomSatStyle as any,
+        toneProfile: randomToneProfile as any
       }).map(color => color.hex);
       
       // Analyze the new colors
@@ -613,22 +657,49 @@ export default function Home() {
         score: analysis.score
       };
       
-      console.log(`Button: Generated vibrant palette, now at history position ${newHistory.length - 1}`);
+      console.log(`Button: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
     } catch (error) {
       console.error("Error generating random palette:", error);
+      toast.error("Failed to generate palette, trying alternative method...");
+      
+      // Fallback to simpler configuration if the advanced one fails
+      try {
+        // Use a simple blue base color with default settings
+        const fallbackColors = generateBeautifulPalette('#3366FF', {
+          harmonyType: 'analogous',
+          count: 5,
+          saturationStyle: 'balanced',
+          toneProfile: 'balanced'
+        }).map(color => color.hex);
+        
+        setRandomColors(fallbackColors);
+        const newHistory = paletteHistory.slice(0, historyIndex + 1);
+        newHistory.push(fallbackColors);
+        setPaletteHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      } catch (fallbackError) {
+        console.error("Fallback generation also failed:", fallbackError);
+        toast.error("All palette generation methods failed");
+      }
     }
   }
   
   // Function to generate palette with specific harmony type
   function handleGenerateWithHarmony(harmonyType: HarmonyType) {
     try {
-      // Generate new colors with the selected harmony type
-      const newColors = generateEnhancedPalette({
+      // Generate a random base color
+      const randomHue = Math.floor(Math.random() * 360);
+      const randomSat = 65 + Math.floor(Math.random() * 25); // 65-90% saturation
+      const randomLit = 45 + Math.floor(Math.random() * 15); // 45-60% lightness
+      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      
+      // Generate new colors with the selected harmony type using the beautiful palette generator
+      const newColors = generateBeautifulPalette(baseColor, {
         harmonyType: harmonyType,
         count: 5,
-        randomize: 0.3,
-        contrastEnhance: true
-      });
+        toneProfile: 'balanced',
+        saturationStyle: 'balanced'
+      }).map(color => color.hex);
       
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
@@ -654,6 +725,7 @@ export default function Home() {
       setShowHarmonyOptions(false);
     } catch (error) {
       console.error(`Error generating ${harmonyType} palette:`, error);
+      toast.error(`Failed to generate ${harmonyType} palette`);
     }
   }
   
@@ -953,7 +1025,6 @@ export default function Home() {
       link.click();
       document.body.removeChild(link);
       
-      toast.success('High-quality palette downloaded!');
     } catch (err) {
       console.error('Error exporting palette:', err);
       toast.error('Failed to export palette');
@@ -970,42 +1041,70 @@ export default function Home() {
     usePastels?: boolean;
   }) {
     try {
-      // If using one of our ultra vibrant modes
-      if (options.highContrast || options.usePastels) {
-        // Generate colors using the extreme vibrant palette generator
-        const baseHue = Math.floor(Math.random() * 360); // Random starting hue
-        const palette = generateColorPalette(`hsl(${baseHue}, 100%, 50%)`, {
-          paletteType: options.harmonyType as any, // Convert harmony type to palette type
-          numColors: 5,
-          highContrast: options.highContrast || false,
-          usePastels: options.usePastels || false
-        });
-        
-        // Update UI with new colors
-        const hexColors = palette.map(color => color.hex);
-        setRandomColors(hexColors);
-        
-        // Add to history
-        const newHistory = paletteHistory.slice(0, historyIndex + 1);
-        newHistory.push(hexColors);
-        setPaletteHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-        
-        // Success message
-        const styleType = options.usePastels ? "pastel" : "ultra vibrant";
-        toast.success(`Generated ${styleType} ${options.harmonyType} palette`);
-        return;
+      // Generate a base color with appropriate temperature bias
+      let baseHue: number;
+      if (options.temperature === 'warm') {
+        // Warm colors are in the red-yellow-orange spectrum (0-60 or 300-359)
+        baseHue = Math.random() < 0.8 ? 
+          Math.floor(Math.random() * 60) : // 80% chance of red-yellow (0-60)
+          300 + Math.floor(Math.random() * 60); // 20% chance of purple-red (300-359)
+      } else if (options.temperature === 'cool') {
+        // Cool colors are in the blue-green-purple spectrum (180-300)
+        baseHue = 180 + Math.floor(Math.random() * 120);
+      } else {
+        // Mixed can be any hue
+        baseHue = Math.floor(Math.random() * 360);
       }
-    
-      // Original behavior for standard mode
-      // Generate new colors with the provided options
-      const newColors = generateEnhancedPalette({
+      
+      // Create a saturated base color with the chosen hue
+      const baseColor = tinycolor(`hsl(${baseHue}, 80%, 50%)`).toHexString();
+      
+      // Determine tone profile and saturation style based on options
+      let toneProfile: 'light' | 'balanced' | 'dark' = 'balanced';
+      let saturationStyle: 'muted' | 'balanced' | 'vibrant' = 'balanced';
+      
+      if (options.highContrast) {
+        toneProfile = 'dark';
+        saturationStyle = 'vibrant';
+      } else if (options.usePastels) {
+        toneProfile = 'light';
+        saturationStyle = 'muted';
+      } else {
+        // Default processing
+        if (options.temperature === 'warm') {
+          toneProfile = Math.random() < 0.7 ? 'dark' : 'balanced';
+          saturationStyle = options.contrastEnhance ? 'vibrant' : 'balanced';
+        } else if (options.temperature === 'cool') {
+          toneProfile = Math.random() < 0.7 ? 'light' : 'balanced';
+          saturationStyle = options.contrastEnhance ? 'vibrant' : 'balanced';
+        } else {
+          // For mixed, use the randomize value to determine variety
+          const varietyFactor = options.randomize;
+          if (varietyFactor < 0.3) {
+            // Low randomization - conservative, balanced palette
+            toneProfile = 'balanced';
+            saturationStyle = 'balanced';
+          } else if (varietyFactor < 0.7) {
+            // Medium randomization - some variety
+            toneProfile = Math.random() < 0.5 ? 'light' : 'dark';
+            saturationStyle = 'balanced';
+          } else {
+            // High randomization - full variety
+            const profiles = ['light', 'balanced', 'dark'];
+            const satStyles = ['muted', 'balanced', 'vibrant'];
+            toneProfile = profiles[Math.floor(Math.random() * profiles.length)] as any;
+            saturationStyle = satStyles[Math.floor(Math.random() * satStyles.length)] as any;
+          }
+        }
+      }
+      
+      // Generate beautiful palette with all our carefully selected parameters
+      const newColors = generateBeautifulPalette(baseColor, {
         harmonyType: options.harmonyType,
-        temperature: options.temperature,
-        contrastEnhance: options.contrastEnhance,
-        randomize: options.randomize,
-        count: 5
-      });
+        count: 5,
+        toneProfile: toneProfile,
+        saturationStyle: saturationStyle
+      }).map(color => color.hex);
       
       // Analyze the new colors
       const analysis = analyzeColorPalette(newColors);
@@ -1025,7 +1124,7 @@ export default function Home() {
         score: analysis.score
       };
       
-      toast.success(`Generated ${options.harmonyType} palette`);
+      toast.success(`Generated ${options.harmonyType} palette with ${toneProfile} tones and ${saturationStyle} saturation`);
       console.log(`Generated advanced palette with ${options.harmonyType} harmony`);
     } catch (error) {
       console.error("Error generating advanced palette:", error);
@@ -1036,16 +1135,59 @@ export default function Home() {
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
-      <header className="border-b bg-white px-6 py-4 flex-shrink-0">
-        <div className="container mx-auto flex items-center justify-between">
-          <Logo />
-          <Navigation />
+      <header className="bg-white py-4 flex-shrink-0">
+        <div className="flex items-center justify-between w-full px-4">
+          <div>
+            <Logo />
+          </div>
+          
+          <div className="flex-1 flex justify-center">
+            <Navigation />
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              title="Undo"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 14L4 9l5-5"/>
+                <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              title="Redo"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 14l5-5-5-5"/>
+                <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleExportPalette}
+              className="flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors"
+              title="Export palette as image"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="flex flex-1 pb-4 overflow-hidden h-full">
-        {/* Color palette section - Takes full height with top margin */}
-        <div className="flex-1 ml-4 overflow-hidden flex">
+      <main className="flex flex-1 overflow-hidden h-full pb-4">
+        {/* Color palette section - Takes full height */}
+        <div className="flex-1 overflow-hidden flex pl-4">
           {/* DnD Context for drag and drop functionality */}
           <DndContext
             sensors={sensors}
