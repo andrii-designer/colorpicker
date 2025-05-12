@@ -104,7 +104,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
                 fontWeight: 400
-              }}>Press Enter to generate palettes and ask Bobby for advice</p>
+              }}>Press Enter to generate palettes, and press Ask Bobby for advice</p>
             </div>
           )}
         </div>
