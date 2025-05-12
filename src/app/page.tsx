@@ -530,7 +530,7 @@ export default function Home() {
       setAdviceMessages([
         {
           id: '1',
-          text: 'Welcome! Generate color palettes, or click a color to copy it.',
+          text: 'Press Enter to generate palettes, or click Ask Bobby for advice',
           icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
         }
       ]);
@@ -1382,7 +1382,6 @@ export default function Home() {
           <ChatPanel
             messages={adviceMessages}
             onAskForAdvice={handleAskForAdvice}
-            onGeneratePalette={handleGenerateRandom}
             onUndo={handleUndo}
             onRedo={handleRedo}
           />

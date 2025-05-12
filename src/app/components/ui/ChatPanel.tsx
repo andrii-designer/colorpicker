@@ -43,7 +43,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
     >
       {/* Fixed position message container */}
       <div 
-        className="absolute top-0 left-0 right-0 bottom-[124px] overflow-hidden"
+        className="absolute top-0 left-0 right-0 bottom-[64px] overflow-hidden"
         style={{ border: 'none' }}
       >
         <div 
@@ -104,29 +104,16 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
                 fontWeight: 400
-              }}>Press Enter to generate palettes, and press Ask Bobby for advice</p>
+              }}>Press Enter to generate palettes, or click Ask Bobby for advice</p>
             </div>
           )}
         </div>
       </div>
       
       {/* Fixed position button container */}
-      <div className="absolute left-0 right-0 bottom-0 h-[124px] pt-4 px-4" style={{ border: 'none', background: 'transparent' }}>
+      <div className="absolute left-0 right-0 bottom-0 h-[64px] pt-4 px-4" style={{ border: 'none', background: 'transparent' }}>
         <button
           onClick={handleAskBobbyClick}
-          className="w-full h-[48px] rounded-[999px] border border-black flex items-center justify-center mb-2"
-          style={{ 
-            fontFamily: 'Inter', 
-            fontSize: '16px', 
-            fontWeight: 400,
-            color: '#000'
-          }}
-        >
-          Ask Bobby
-        </button>
-        
-        <button
-          onClick={onGeneratePalette}
           className="w-full h-[48px] rounded-[999px] bg-black flex items-center justify-center"
           style={{ 
             fontFamily: 'Inter', 
@@ -135,7 +122,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
             color: '#FFF'
           }}
         >
-          Generate Palette
+          Ask Bobby
         </button>
       </div>
     </div>
