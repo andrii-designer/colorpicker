@@ -1,13 +1,14 @@
+'use client';
+
 import React from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { cn } from '../../../lib/utils'
 
 interface NavigationItem {
   name: string
   href: string
   active?: boolean
-  disabled?: boolean
-  comingSoon?: boolean
 }
 
 interface NavigationProps {
@@ -16,61 +17,27 @@ interface NavigationProps {
 }
 
 export function Navigation({ className, items = defaultItems }: NavigationProps) {
+  const pathname = usePathname();
+  
+  // Update active state based on current path
+  const updatedItems = items.map(item => ({
+    ...item,
+    active: pathname === item.href
+  }));
+  
   return (
-    <nav className={cn("inline-flex items-center gap-4", className)}>
-      {items.map((item) => (
-        item.disabled ? (
-          <div
-            key={item.name}
-            style={{
-              display: 'flex',
-              padding: '8px 16px',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '10px',
-              borderRadius: '99px',
-              background: 'transparent',
-              cursor: 'not-allowed',
-              position: 'relative'
-            }}
-          >
-            <span style={{ 
-              color: '#999',
-              fontFamily: 'Inter',
-              fontSize: '16px',
-              fontStyle: 'normal',
-              fontWeight: 500,
-              lineHeight: 'normal'
-            }}>
-              {item.name} {item.comingSoon && <span style={{ fontSize: '12px' }}>(soon)</span>}
-            </span>
-          </div>
-        ) : (
-          <Link
-            key={item.name}
-            href={item.href}
-            style={{
-              display: 'flex',
-              padding: '8px 16px',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '10px',
-              borderRadius: '99px',
-              background: item.active ? '#000' : 'transparent'
-            }}
-          >
-            <span style={{ 
-              color: item.active ? '#FFF' : '#000',
-              fontFamily: 'Inter',
-              fontSize: '16px',
-              fontStyle: 'normal',
-              fontWeight: 500,
-              lineHeight: 'normal'
-            }}>
-              {item.name}
-            </span>
-          </Link>
-        )
+    <nav className={cn("flex items-center justify-center gap-4 w-[460px]", className)}>
+      {updatedItems.map((item) => (
+        <Link
+          key={item.name}
+          href={item.href}
+          className={cn(
+            "flex items-center justify-center px-6 py-2 rounded-full transition-colors whitespace-nowrap w-[150px]",
+            item.active ? "bg-black text-white" : "text-black hover:bg-gray-100"
+          )}
+        >
+          <span className="text-base font-medium">{item.name}</span>
+        </Link>
       ))}
     </nav>
   )
@@ -80,18 +47,13 @@ const defaultItems: NavigationItem[] = [
   {
     name: "Random palette",
     href: "/",
-    active: true,
   },
   {
-    name: "Based on color",
-    href: "/color-harmony",
-    disabled: true,
-    comingSoon: true
+    name: "Saved palettes",
+    href: "/saved-palettes",
   },
   {
-    name: "From image",
-    href: "/from-image",
-    disabled: true,
-    comingSoon: true
+    name: "Popular palettes",
+    href: "/popular-palettes",
   }
 ] 

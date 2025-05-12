@@ -32,6 +32,11 @@ const nextConfig = {
       },
     ];
   },
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  experimental: {
+    // Any experimental features you want to enable
+  },
+  transpilePackages: []
 };
 
 export default nextConfig;

@@ -6,7 +6,7 @@ import {
   formatColorDatabase,
   generateColorEntry,
   type ColorData
-} from '@/lib/utils/scrapeColors';
+} from './lib/scrapeColors';
 
 export default function ColorScraper() {
   const [isClient, setIsClient] = useState(false);

@@ -261,7 +261,9 @@ const SortableColorItem = ({
           className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Edit color"
         >
-          <span className={`${isDark ? 'text-white' : 'text-black'} text-xs font-bold`}>Edit</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${isDark ? 'text-white' : 'text-black'}`}>
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+          </svg>
         </button>
         
         {/* Copy button */}
@@ -274,7 +276,10 @@ const SortableColorItem = ({
           className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors`}
           title="Copy hex code"
         >
-          <span className={`${isDark ? 'text-white' : 'text-black'} text-xs font-bold`}>Copy</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${isDark ? 'text-white' : 'text-black'}`}>
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+          </svg>
         </button>
         
         {/* Drag handle */}
@@ -619,11 +624,79 @@ export default function Home() {
       ];
       const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
       
-      // Generate a truly random base color
-      const randomHue = Math.floor(Math.random() * 360);
-      const randomSat = 70 + Math.floor(Math.random() * 30); // 70-100% saturation
-      const randomLit = 45 + Math.floor(Math.random() * 20); // 45-65% lightness
-      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      // NEW: Add variety to base color generation with different methods
+      const colorMethods = [
+        'full-random',     // Completely random (35% chance)
+        'hue-based',       // Based on random hue with controlled S/L (30% chance)
+        'weighted-hues',   // Use weighted hue ranges for more appealing colors (25% chance)
+        'color-theory'     // Use color theory principles (10% chance)
+      ];
+      
+      const methodChoice = Math.random();
+      let baseColor: string;
+      
+      if (methodChoice < 0.35) {
+        // Full random - RGB based (Most random)
+        const r = Math.floor(Math.random() * 256);
+        const g = Math.floor(Math.random() * 256);
+        const b = Math.floor(Math.random() * 256);
+        baseColor = tinycolor(`rgb(${r}, ${g}, ${b})`).toHexString();
+      } 
+      else if (methodChoice < 0.65) {
+        // Hue based with controlled saturation and lightness
+        const randomHue = Math.floor(Math.random() * 360);
+        // More variety in saturation and lightness
+        const randomSat = 30 + Math.floor(Math.random() * 70); // 30-100% saturation
+        const randomLit = 25 + Math.floor(Math.random() * 50); // 25-75% lightness
+        baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      }
+      else if (methodChoice < 0.90) {
+        // Weighted hue ranges - favor more naturally attractive hues
+        // These ranges correspond to blues, greens, warm colors, etc.
+        const hueRanges = [
+          { min: 190, max: 240, weight: 0.25 }, // Blues
+          { min: 90, max: 150, weight: 0.2 },  // Greens
+          { min: 0, max: 30, weight: 0.2 },    // Reds
+          { min: 30, max: 60, weight: 0.15 },  // Oranges/Yellows
+          { min: 270, max: 330, weight: 0.2 }  // Purples/Magentas
+        ];
+        
+        // Choose a hue range based on weights
+        const rangeRandom = Math.random();
+        let cumulativeWeight = 0;
+        let selectedRange = hueRanges[0];
+        
+        for (const range of hueRanges) {
+          cumulativeWeight += range.weight;
+          if (rangeRandom <= cumulativeWeight) {
+            selectedRange = range;
+            break;
+          }
+        }
+        
+        // Generate a random hue within the selected range
+        const hue = selectedRange.min + Math.floor(Math.random() * (selectedRange.max - selectedRange.min));
+        const sat = 35 + Math.floor(Math.random() * 65); // 35-100% saturation
+        const lit = 30 + Math.floor(Math.random() * 40); // 30-70% lightness
+        
+        baseColor = tinycolor(`hsl(${hue}, ${sat}%, ${lit}%)`).toHexString();
+      }
+      else {
+        // Color theory based - use golden ratio for hue selection
+        // Start with a random hue
+        const startHue = Math.floor(Math.random() * 360);
+        
+        // Create a hue using the golden ratio (phi ≈ 0.618033988749895)
+        // This produces aesthetically pleasing hue relationships
+        const phi = 0.618033988749895;
+        const hue = Math.floor((startHue + (360 * phi)) % 360);
+        
+        // Use more saturated, moderate lightness values for vibrant base colors
+        const sat = 60 + Math.floor(Math.random() * 40); // 60-100%
+        const lit = 45 + Math.floor(Math.random() * 15); // 45-60%
+        
+        baseColor = tinycolor(`hsl(${hue}, ${sat}%, ${lit}%)`).toHexString();
+      }
       
       // Use random saturation style and tone profile for more variety
       const satStyles = ['muted', 'balanced', 'vibrant'];
@@ -1132,24 +1205,72 @@ export default function Home() {
     }
   }
   
+  // Update the handleSavePalette function to only keep the essential toast message
+  const handleSavePalette = () => {
+    // Get the current palette
+    const paletteToSave = [...randomColors];
+    
+    try {
+      // Create a new palette object with a unique ID
+      const paletteId = Date.now().toString();
+      
+      // Create a new palette object
+      const newPalette = {
+        id: paletteId,
+        colors: paletteToSave,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Get existing saved palettes from localStorage or initialize empty array
+      const savedPalettes = JSON.parse(localStorage.getItem('savedPalettes') || '[]');
+      
+      // Add to popular palettes
+      const popularPalettes = JSON.parse(localStorage.getItem('popularPalettes') || '[]');
+      const popularPalette = {
+        id: paletteId,
+        colors: paletteToSave,
+        createdAt: new Date().toISOString(),
+        likes: 1 // Start with 1 like since the creator likes it
+      };
+      
+      // Add to liked palettes
+      const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
+      likedPalettes.push(paletteId);
+      
+      // Save all to localStorage
+      savedPalettes.push(newPalette);
+      popularPalettes.push(popularPalette);
+      
+      localStorage.setItem('savedPalettes', JSON.stringify(savedPalettes));
+      localStorage.setItem('popularPalettes', JSON.stringify(popularPalettes));
+      localStorage.setItem('likedPalettes', JSON.stringify(likedPalettes));
+      
+      // Keep only the essential saving message
+      toast.success('Palette saved!');
+    } catch (error) {
+      console.error('Error saving palette:', error);
+      toast.error('Failed to save palette. Please try again.');
+    }
+  };
+  
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
       <header className="bg-white py-4 flex-shrink-0">
         <div className="flex items-center justify-between w-full px-4">
-          <div>
+          <div className="w-[200px] flex-shrink-0">
             <Logo />
           </div>
           
-          <div className="flex-1 flex justify-center">
+          <div className="flex-shrink-0">
             <Navigation />
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="w-[320px] flex justify-end space-x-3 flex-shrink-0">
             <button
               onClick={handleUndo}
               disabled={!canUndo}
-              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} h-10`}
               title="Undo"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1161,7 +1282,7 @@ export default function Home() {
             <button
               onClick={handleRedo}
               disabled={!canRedo}
-              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              className={`flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} h-10`}
               title="Redo"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1171,8 +1292,19 @@ export default function Home() {
             </button>
             
             <button
+              onClick={handleSavePalette}
+              className="flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors h-10"
+              title="Save palette"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+              <span className="ml-2">Save</span>
+            </button>
+            
+            <button
               onClick={handleExportPalette}
-              className="flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors"
+              className="flex items-center px-3 py-2 rounded-full border border-[#E5E5E5] hover:bg-gray-50 transition-colors h-10"
               title="Export palette as image"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1180,6 +1312,7 @@ export default function Home() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
+              <span className="ml-2">Download</span>
             </button>
           </div>
         </div>

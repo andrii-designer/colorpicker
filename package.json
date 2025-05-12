@@ -17,11 +17,11 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@types/chroma-js": "^3.1.1",
     "ai": "^3.3.20",
     "chroma-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "color-convert": "^3.0.1",
     "colorthief": "^2.6.0",
     "date-fns": "^3.6.0",
     "firebase": "^10.13.0",
@@ -46,6 +46,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@types/chroma-js": "^3.1.1",
     "@types/node": "^20.1.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.1",

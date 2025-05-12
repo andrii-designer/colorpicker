@@ -258,17 +258,45 @@ function generateSeedPalette(baseLch: LCH, config: PaletteConfig): LCH[] {
   // Create the palette
   const palette: LCH[] = [];
   
-  // Create tone structure ordering for professional palette pattern
-  // The most common pattern is: light, dark, mid-tones
-  const toneOrderIndices = [0, 1, 2, 3, 4]; // Light first, dark second by default
+  // NEW: Add multiple pattern options for more variety in tone ordering
+  // Previously we always used [0, 1, 2, 3, 4] (light first, dark second)
+  const patternOptions = [
+    [0, 1, 2, 3, 4], // Classic: light → dark → midtones (original pattern)
+    [1, 0, 2, 3, 4], // Dark first: dark → light → midtones
+    [2, 0, 1, 3, 4], // Midtone first: midtone → light → dark → other midtones
+    [2, 3, 0, 1, 4], // Midtones first: midtones → light → dark → accent
+    [1, 2, 3, 4, 0], // Light last: dark → midtones → light
+    [0, 2, 3, 4, 1]  // Dark last: light → midtones → dark
+  ];
+  
+  // Choose a random pattern based on a weighted distribution
+  const patternWeights = [0.25, 0.25, 0.15, 0.15, 0.1, 0.1]; // Weights add up to 1.0
+  const randomValue = Math.random();
+  let cumulativeWeight = 0;
+  let patternIndex = 0;
+  
+  for (let i = 0; i < patternWeights.length; i++) {
+    cumulativeWeight += patternWeights[i];
+    if (randomValue < cumulativeWeight) {
+      patternIndex = i;
+      break;
+    }
+  }
+  
+  // Use the selected pattern for tone ordering
+  const toneOrderIndices = patternOptions[patternIndex];
   
   // For count values different than 5, adjust accordingly
   const actualCount = Math.min(count, harmonyTemplate.length);
   
+  // NEW: Occasionally reverse the hue distribution for more variety (25% chance)
+  const shouldReverseHues = Math.random() < 0.25;
+  
   // Loop through and create colors based on templates
   for (let i = 0; i < actualCount; i++) {
-    // Get hue from harmony template
-    const hueOffset = harmonyTemplate[i % harmonyTemplate.length];
+    // Get hue from harmony template with possible reversal
+    const templateIndex = shouldReverseHues ? actualCount - 1 - i : i;
+    const hueOffset = harmonyTemplate[templateIndex % harmonyTemplate.length];
     const newHue = ((baseLch.h + hueOffset) % 360 + 360) % 360;
     
     // Get tone bucket from structure using professional ordering
@@ -280,9 +308,14 @@ function generateSeedPalette(baseLch: LCH, config: PaletteConfig): LCH[] {
     const lRange = toneBucket.l[1] - toneBucket.l[0];
     const cRange = toneBucket.c[1] - toneBucket.c[0];
     
-    // We use a 40-60 range in the middle of the bucket for more professional colors
-    const newL = toneBucket.l[0] + lRange * (0.4 + Math.random() * 0.2); 
-    const newC = (toneBucket.c[0] + cRange * (0.4 + Math.random() * 0.2)) * saturationMod;
+    // NEW: Increase randomization range for more variety
+    // Original was (0.4 + Math.random() * 0.2) which is 0.4-0.6 range
+    // New is 0.3-0.7 range for more variety while still avoiding extremes
+    const randomFactor = 0.3 + Math.random() * 0.4;
+    
+    // Apply the wider randomization range
+    const newL = toneBucket.l[0] + lRange * randomFactor;
+    const newC = (toneBucket.c[0] + cRange * randomFactor) * saturationMod;
     
     // Add color to palette
     palette.push({
@@ -385,8 +418,43 @@ export function generateBeautifulPalette(baseColor: string, config: PaletteConfi
   // 5. Add finishing touches - sometimes introduce an accent color
   const finalPalette = addFinishingTouches(optimizedPalette, config);
   
+  // NEW: Decide whether to retain the lightness sorting (which creates the dark-to-light pattern)
+  // or use a different arrangement for more variety
+  const arrangementPatterns = [
+    'lightness-sort',  // Default: Sort by lightness (65% chance)
+    'original-order',  // Keep colors in original harmony order (20% chance)
+    'random-shuffle',  // Random shuffle (15% chance)
+  ];
+  
+  // Choose pattern with weighted probabilities
+  const patternChoice = Math.random();
+  let chosenPattern = 'lightness-sort';
+  
+  if (patternChoice < 0.65) {
+    chosenPattern = 'lightness-sort';
+  } else if (patternChoice < 0.85) {
+    chosenPattern = 'original-order';
+  } else {
+    chosenPattern = 'random-shuffle';
+  }
+  
+  // Apply the chosen pattern
+  let arrangedPalette = [...finalPalette];
+  
+  if (chosenPattern === 'lightness-sort') {
+    // Sort by lightness (default behavior)
+    arrangedPalette.sort((a, b) => a.l - b.l);
+  } else if (chosenPattern === 'random-shuffle') {
+    // Random shuffle
+    for (let i = arrangedPalette.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arrangedPalette[i], arrangedPalette[j]] = [arrangedPalette[j], arrangedPalette[i]];
+    }
+  }
+  // For 'original-order', we just keep the array as is
+  
   // 6. Convert back to hex colors and create the color objects
-  return finalPalette.map(lch => {
+  return arrangedPalette.map(lch => {
     const hex = lchToHex(lch);
     const tc = tinycolorLib(hex);
     const rgb = tc.toRgb();
@@ -452,36 +520,154 @@ function addFinishingTouches(palette: LCH[], config: PaletteConfig): LCH[] {
   
   // ===== PROFESSIONAL PALETTE ENHANCEMENTS =====
   
-  // 1. Ensure proper lightness separation (critical for professional palettes)
-  const LIGHT_THRESHOLD = 80;
-  const DARK_THRESHOLD = 25;
+  // NEW: Add multiple pattern styles with different probabilities
+  const patternStyles = [
+    'classic',       // Classic light-to-dark spread (40%)
+    'high-contrast', // More extreme light-dark contrast (20%)
+    'mid-focused',   // Focus on mid-tones with less extremes (15%)
+    'gradient',      // Smooth gradient effect (15%)
+    'random'         // Totally randomized lightness (10%)
+  ];
   
-  // Ensure we have one truly light color (white/off-white)
-  if (result[result.length-1].l < LIGHT_THRESHOLD) {
-    result[result.length-1].l = LIGHT_THRESHOLD + Math.random() * 15;
-    // Light colors look better with low chroma
-    result[result.length-1].c = Math.max(5, result[result.length-1].c * 0.5);
+  // Choose a pattern style randomly with weighted distribution
+  const randomStyle = Math.random();
+  let chosenStyle = 'classic';
+  
+  if (randomStyle < 0.4) {
+    chosenStyle = 'classic';
+  } else if (randomStyle < 0.6) {
+    chosenStyle = 'high-contrast';
+  } else if (randomStyle < 0.75) {
+    chosenStyle = 'mid-focused';
+  } else if (randomStyle < 0.9) {
+    chosenStyle = 'gradient';
+  } else {
+    chosenStyle = 'random';
   }
   
-  // Ensure we have one truly dark color (near-black)
-  if (result[0].l > DARK_THRESHOLD) {
-    result[0].l = Math.max(10, DARK_THRESHOLD - Math.random() * 10);
-    // Dark colors should have moderate chroma
-    result[0].c = Math.min(45, Math.max(15, result[0].c));
+  // Define thresholds based on style
+  let LIGHT_THRESHOLD = 80;
+  let DARK_THRESHOLD = 25;
+  let applySorting = true;
+  
+  // Apply different enhancement strategies based on chosen style
+  if (chosenStyle === 'high-contrast') {
+    // More extreme light-dark contrast
+    LIGHT_THRESHOLD = 85;
+    DARK_THRESHOLD = 15;
+  } else if (chosenStyle === 'mid-focused') {
+    // Focus on mid-tones
+    LIGHT_THRESHOLD = 75;
+    DARK_THRESHOLD = 35;
+  } else if (chosenStyle === 'gradient') {
+    // Create a smoother gradient of lightness
+    const minLight = 15 + Math.random() * 15; // 15-30
+    const maxLight = 75 + Math.random() * 20; // 75-95
+    const step = (maxLight - minLight) / (result.length - 1);
+    
+    for (let i = 0; i < result.length; i++) {
+      result[i].l = minLight + (step * i);
+    }
+    
+    // Skip the normal light/dark threshold logic
+    applySorting = false;
+  } else if (chosenStyle === 'random') {
+    // Randomize the lightness values within reasonable bounds
+    for (let i = 0; i < result.length; i++) {
+      result[i].l = 20 + Math.random() * 70; // 20-90 range
+    }
+    
+    // Don't sort, keep it random
+    applySorting = false;
   }
   
-  // 2. Create a perfect anchor color with high chroma if not muted
-  if (config.saturationStyle !== 'muted') {
-    // Mid-tone color with high chroma serves as anchor
-    const midIndex = Math.floor(result.length / 2);
-    result[midIndex].l = 45 + Math.random() * 10; // Perfect mid-range
-    result[midIndex].c = Math.min(100, result[midIndex].c * 1.4); // More vibrant
+  // Apply standard light/dark adjustments for most styles
+  if (applySorting) {
+    // Ensure we have one truly light color (white/off-white)
+    if (result[result.length-1].l < LIGHT_THRESHOLD) {
+      result[result.length-1].l = LIGHT_THRESHOLD + Math.random() * 15;
+      // Light colors look better with low chroma
+      result[result.length-1].c = Math.max(5, result[result.length-1].c * 0.5);
+    }
+    
+    // Ensure we have one truly dark color (near-black)
+    if (result[0].l > DARK_THRESHOLD) {
+      result[0].l = Math.max(10, DARK_THRESHOLD - Math.random() * 10);
+      // Dark colors should have moderate chroma
+      result[0].c = Math.min(45, Math.max(15, result[0].c));
+    }
   }
   
-  // 3. Professional palettes often have a neutral color to balance vibrant ones
+  // NEW: Randomly choose a pattern for accent colors 
+  const accentPatterns = [
+    'standard',     // Default behavior (40%)
+    'vibrant-mid',  // Make mid-tones more vibrant (20%) 
+    'vibrant-dark', // Make dark colors more vibrant (15%)
+    'vibrant-all',  // Make all colors more vibrant (10%)
+    'muted-all',    // Make all colors more muted (15%)
+  ];
+  
+  const randomAccent = Math.random();
+  let chosenAccent = 'standard';
+  
+  if (randomAccent < 0.4) {
+    chosenAccent = 'standard';
+  } else if (randomAccent < 0.6) {
+    chosenAccent = 'vibrant-mid';
+  } else if (randomAccent < 0.75) {
+    chosenAccent = 'vibrant-dark';
+  } else if (randomAccent < 0.85) {
+    chosenAccent = 'vibrant-all';
+  } else {
+    chosenAccent = 'muted-all';
+  }
+  
+  // Apply the chosen accent pattern
+  if (chosenAccent === 'standard') {
+    // Standard accent handling - vibrant mid-tone
+    if (config.saturationStyle !== 'muted') {
+      // Mid-tone color with high chroma serves as anchor
+      const midIndex = Math.floor(result.length / 2);
+      result[midIndex].l = 45 + Math.random() * 10; // Perfect mid-range
+      result[midIndex].c = Math.min(100, result[midIndex].c * 1.4); // More vibrant
+    }
+  } else if (chosenAccent === 'vibrant-mid') {
+    // Make mid-tones more vibrant
+    for (let i = 0; i < result.length; i++) {
+      if (result[i].l >= 35 && result[i].l <= 65) {
+        result[i].c = Math.min(110, result[i].c * 1.6);
+      }
+    }
+  } else if (chosenAccent === 'vibrant-dark') {
+    // Make dark colors more vibrant
+    for (let i = 0; i < result.length; i++) {
+      if (result[i].l < 40) {
+        result[i].c = Math.min(100, result[i].c * 1.5);
+      }
+    }
+  } else if (chosenAccent === 'vibrant-all') {
+    // Make all colors more vibrant
+    for (let i = 0; i < result.length; i++) {
+      result[i].c = Math.min(110, result[i].c * 1.3);
+    }
+  } else if (chosenAccent === 'muted-all') {
+    // Make all colors more muted
+    for (let i = 0; i < result.length; i++) {
+      result[i].c = Math.max(10, result[i].c * 0.7);
+    }
+  }
+  
+  // Chance of adding a neutral color (reduced to 50% from 70%)
   const neutralIndex = Math.random() < 0.5 ? 1 : result.length - 2; // Second darkest or second lightest
-  if (Math.random() < 0.7) { // 70% chance of adding a neutral
+  if (Math.random() < 0.5) { // 50% chance of adding a neutral
     result[neutralIndex].c = Math.max(5, result[neutralIndex].c * 0.3);
+  }
+  
+  // NEW: Occasionally add a "pop" color with extreme saturation (20% chance)
+  if (Math.random() < 0.2 && config.saturationStyle !== 'muted') {
+    // Choose a random index except for the lightest and darkest
+    const popIndex = 1 + Math.floor(Math.random() * (result.length - 2));
+    result[popIndex].c = Math.min(120, result[popIndex].c * 2.0);
   }
   
   // 4. Adjust common hue values to trending hues for more modern look
