@@ -5,6 +5,10 @@ import { Logo } from '../components/ui/Logo';
 import { Navigation } from '../components/ui/Navigation';
 import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
+import { auth, db } from '../../lib/firebase/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { getDocuments, deleteDocument, updateDocument } from '../../lib/firebase/firebaseUtils';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface SavedPalette {
   id: string;
@@ -12,36 +16,160 @@ interface SavedPalette {
   createdAt: string;
 }
 
+// A helper function to get document by ID since the import is having issues
+const getDocumentById = async (collectionName: string, id: string) => {
+  try {
+    const docRef = doc(db, collectionName, id);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data()
+      };
+    } else {
+      console.log(`No document found with ID: ${id}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error getting document ${id} from ${collectionName}:`, error);
+    throw error;
+  }
+};
+
 export default function SavedPalettes() {
   const [savedPalettes, setSavedPalettes] = useState<SavedPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [likedPalettes, setLikedPalettes] = useState<string[]>([]);
 
+  // Check for authenticated user
   useEffect(() => {
-    // Load saved palettes from localStorage
-    try {
-      setIsLoading(true);
-      const storedPalettes = localStorage.getItem('savedPalettes');
-      if (storedPalettes) {
-        setSavedPalettes(JSON.parse(storedPalettes));
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
       }
-    } catch (error) {
-      console.error('Error loading saved palettes from localStorage:', error);
-      toast.error('Failed to load saved palettes');
-    } finally {
-      setIsLoading(false);
-    }
+    });
+    
+    return () => unsubscribe();
   }, []);
 
-  const handleDeletePalette = (id: string) => {
+  useEffect(() => {
+    // Load saved palettes from localStorage and ensure they match with Firestore data
+    const loadPalettes = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load local saved palettes
+        const storedPalettes = localStorage.getItem('savedPalettes');
+        let localPalettes: SavedPalette[] = [];
+        
+        if (storedPalettes) {
+          localPalettes = JSON.parse(storedPalettes);
+        }
+        
+        // Get liked palettes
+        const storedLikedPalettes = localStorage.getItem('likedPalettes');
+        if (storedLikedPalettes) {
+          setLikedPalettes(JSON.parse(storedLikedPalettes));
+        }
+        
+        // Fetch palettes from Firestore to merge with local data
+        // This ensures we have the latest palette data
+        const firestorePalettes = await getDocuments('palettes');
+        
+        // Combine local and Firestore palettes, giving priority to Firestore data
+        // but only keeping palettes the user has saved
+        const allPalettes = localPalettes.map(localPalette => {
+          // Check if this palette exists in Firestore
+          const matchingFirestorePalette = firestorePalettes.find(
+            (p: any) => p.id === localPalette.id
+          ) as { id: string; colors?: string[]; createdAt?: string } | undefined;
+          
+          if (matchingFirestorePalette) {
+            // Use Firestore data but keep as a saved palette format
+            return {
+              id: matchingFirestorePalette.id,
+              colors: matchingFirestorePalette.colors || localPalette.colors,
+              createdAt: matchingFirestorePalette.createdAt || localPalette.createdAt
+            };
+          }
+          
+          // Keep local palettes that aren't in Firestore
+          return localPalette;
+        });
+        
+        // Sort by creation date (newest first)
+        allPalettes.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        
+        setSavedPalettes(allPalettes);
+      } catch (error) {
+        console.error('Error loading saved palettes:', error);
+        toast.error('Failed to load saved palettes');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPalettes();
+  }, []);
+
+  const handleDeletePalette = async (id: string) => {
     try {
-      // Update localStorage
+      console.log('Deleting palette with ID:', id);
+      
+      // Update UI first for immediate response
       const updatedPalettes = savedPalettes.filter(palette => palette.id !== id);
+      const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
+      const updatedLikedPalettes = likedPalettes.filter((paletteId: string) => paletteId !== id);
+      
+      // Update localStorage immediately
       localStorage.setItem('savedPalettes', JSON.stringify(updatedPalettes));
+      localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
       
       // Update state
       setSavedPalettes(updatedPalettes);
+      setLikedPalettes(updatedLikedPalettes);
       
-      // Remove delete success message
+      // Show immediate feedback
+      toast.success('Palette removed from your collection');
+      
+      // Now update Firestore in the background
+      (async () => {
+        try {
+          // Get current palette data
+          const paletteDoc = await getDocumentById('palettes', id) as { 
+            id: string; 
+            likes?: number; 
+            colors?: string[]; 
+            createdAt?: string; 
+          } | null;
+          
+          if (paletteDoc) {
+            // If the palette exists in Firestore and has more than 1 like,
+            // just decrement the likes count instead of deleting
+            if (paletteDoc.likes && paletteDoc.likes > 1) {
+              console.log('Palette has multiple likes, decreasing like count instead of deleting');
+              await updateDocument('palettes', id, { 
+                likes: Math.max(0, paletteDoc.likes - 1) 
+              });
+            } else {
+              // If this is the only like, delete the palette
+              console.log('Palette has only one like, deleting completely');
+              await deleteDocument('palettes', id);
+            }
+          } else {
+            console.log('Palette not found in Firestore, only removing locally');
+          }
+        } catch (firestoreError) {
+          console.error('Background error updating Firestore:', firestoreError);
+          // Don't show error to user since local deletion succeeded
+        }
+      })();
     } catch (error) {
       console.error('Error deleting palette:', error);
       toast.error('Failed to delete palette');

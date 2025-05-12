@@ -5,6 +5,31 @@ import { Logo } from '../components/ui/Logo';
 import { Navigation } from '../components/ui/Navigation';
 import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
+import { getDocuments, updateDocument } from '../../lib/firebase/firebaseUtils';
+import { auth, db } from '../../lib/firebase/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+// A helper function to get document by ID since the import is having issues
+const getDocumentById = async (collectionName: string, id: string) => {
+  try {
+    const docRef = doc(db, collectionName, id);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data()
+      };
+    } else {
+      console.log(`No document found with ID: ${id}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error getting document ${id} from ${collectionName}:`, error);
+    throw error;
+  }
+};
 
 interface PopularPalette {
   id: string;
@@ -17,35 +42,58 @@ export default function PopularPalettes() {
   const [popularPalettes, setPopularPalettes] = useState<PopularPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [likedPalettes, setLikedPalettes] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   
-  // Load popular palettes and liked palettes from localStorage
+  // Check for authenticated user
   useEffect(() => {
-    try {
-      setIsLoading(true);
-      
-      // Load popular palettes
-      const storedPalettes = localStorage.getItem('popularPalettes');
-      if (storedPalettes) {
-        // Parse and sort by likes in descending order
-        const palettes = JSON.parse(storedPalettes);
-        palettes.sort((a: PopularPalette, b: PopularPalette) => b.likes - a.likes);
-        setPopularPalettes(palettes);
-      }
-      
-      // Load liked palettes
-      const storedLikedPalettes = localStorage.getItem('likedPalettes');
-      if (storedLikedPalettes) {
-        setLikedPalettes(JSON.parse(storedLikedPalettes));
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
       } else {
-        // Initialize liked palettes if not exists
-        localStorage.setItem('likedPalettes', JSON.stringify([]));
+        setUserId(null);
       }
-    } catch (error) {
-      console.error('Error loading palettes:', error);
-      toast.error('Failed to load palettes');
-    } finally {
-      setIsLoading(false);
-    }
+    });
+    
+    return () => unsubscribe();
+  }, []);
+  
+  // Load popular palettes from Firestore and liked palettes from localStorage
+  useEffect(() => {
+    const fetchPalettes = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load popular palettes from Firestore
+        const palettes = await getDocuments('palettes');
+        
+        // Sort by likes in descending order and ensure proper typing
+        const typedPalettes = palettes.map((p: any) => ({
+          id: p.id,
+          colors: p.colors || [],
+          createdAt: p.createdAt || new Date().toISOString(),
+          likes: p.likes || 0
+        })) as PopularPalette[];
+        
+        typedPalettes.sort((a, b) => b.likes - a.likes);
+        setPopularPalettes(typedPalettes);
+        
+        // Load liked palettes from localStorage
+        const storedLikedPalettes = localStorage.getItem('likedPalettes');
+        if (storedLikedPalettes) {
+          setLikedPalettes(JSON.parse(storedLikedPalettes));
+        } else {
+          // Initialize liked palettes if not exists
+          localStorage.setItem('likedPalettes', JSON.stringify([]));
+        }
+      } catch (error) {
+        console.error('Error loading palettes:', error);
+        toast.error('Failed to load palettes');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchPalettes();
   }, []);
 
   // Check if palette is already liked
@@ -54,47 +102,71 @@ export default function PopularPalettes() {
   };
 
   // Handle liking or unliking a palette
-  const handleLikePalette = (palette: PopularPalette) => {
+  const handleLikePalette = async (palette: PopularPalette) => {
     try {
       const alreadyLiked = isPaletteLiked(palette.id);
-      
-      // Get current popular palettes
-      const popularPalettes = JSON.parse(localStorage.getItem('popularPalettes') || '[]');
       const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
       
       if (alreadyLiked) {
-        // Handle unlike
+        // Handle unlike - Update UI immediately
+        const updatedLikes = Math.max(0, palette.likes - 1);
         
-        // Update the popular palette
-        const updatedPalettes = popularPalettes.map((p: PopularPalette) => {
+        // Update UI state first for immediate feedback
+        const updatedPalettes = popularPalettes.map((p) => {
           if (p.id === palette.id) {
-            // Decrement likes (but ensure not below 0)
-            return { ...p, likes: Math.max(0, p.likes - 1) };
+            return { ...p, likes: updatedLikes };
           }
           return p;
         });
         
-        // Remove from liked palettes
+        // Update liked palettes in localStorage
         const updatedLikedPalettes = likedPalettes.filter((id: string) => id !== palette.id);
         setLikedPalettes(updatedLikedPalettes);
-        
-        // Save back to localStorage
-        localStorage.setItem('popularPalettes', JSON.stringify(updatedPalettes));
         localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
         
-        // Update state
+        // Update UI
         setPopularPalettes(updatedPalettes);
-      } else {
-        // Handle like
         
-        // Find the palette to update
-        const updatedPalettes = popularPalettes.map((p: PopularPalette) => {
+        // Show immediate feedback
+        toast.success('Palette unliked');
+        
+        // Now perform Firebase operations in the background
+        (async () => {
+          try {
+            // Try to get the document first to verify it exists
+            const existingPalette = await getDocumentById('palettes', palette.id);
+            
+            if (existingPalette) {
+              console.log('Found palette in Firestore, updating likes to', updatedLikes);
+              await updateDocument('palettes', palette.id, { likes: updatedLikes });
+            } else {
+              console.log('Palette not found in Firestore:', palette.id);
+              // Document doesn't exist, nothing to update in Firebase
+            }
+          } catch (error) {
+            console.error('Background error unliking palette in Firebase:', error);
+            // Don't show error to user since local update succeeded
+          }
+        })();
+      } else {
+        // Handle like - Update UI immediately
+        const updatedLikes = palette.likes + 1;
+        
+        // Update UI state first for immediate feedback
+        const updatedPalettes = popularPalettes.map((p) => {
           if (p.id === palette.id) {
-            // Increment likes
-            return { ...p, likes: p.likes + 1 };
+            return { ...p, likes: updatedLikes };
           }
           return p;
         });
+        
+        // Add to liked palettes locally
+        const updatedLikedPalettes = [...likedPalettes, palette.id];
+        setLikedPalettes(updatedLikedPalettes);
+        localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
+        
+        // Update UI
+        setPopularPalettes(updatedPalettes);
         
         // Add to saved palettes too
         const savedPalettes = JSON.parse(localStorage.getItem('savedPalettes') || '[]');
@@ -113,20 +185,47 @@ export default function PopularPalettes() {
           
           // Show explicit notification that palette was saved
           toast.success('Palette saved to your collection');
+        } else {
+          // Just show like confirmation
+          toast.success('Palette liked');
         }
         
-        // Add to liked palettes
-        const updatedLikedPalettes = [...likedPalettes, palette.id];
-        setLikedPalettes(updatedLikedPalettes);
-        
-        // Save back to localStorage
-        localStorage.setItem('popularPalettes', JSON.stringify(updatedPalettes));
-        localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
-        
-        // Update state
-        setPopularPalettes(updatedPalettes);
+        // Now perform Firebase operations in the background
+        (async () => {
+          try {
+            console.log('Liking palette with Firestore ID:', palette.id);
+            
+            // Check if document exists first
+            const docRef = doc(db, 'palettes', palette.id);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+              // Document exists, just update it
+              await updateDocument('palettes', palette.id, { likes: updatedLikes });
+            } else {
+              // Document doesn't exist - need to create it first
+              console.log('Palette not found in Firestore, creating it first');
+              
+              // Create the palette document with the same ID
+              const newPaletteData = {
+                id: palette.id, // Use the same ID
+                colors: palette.colors,
+                createdAt: palette.createdAt,
+                likes: updatedLikes
+              };
+              
+              // Add document directly with the existing ID
+              await setDoc(docRef, newPaletteData);
+              console.log('Created palette with ID:', palette.id);
+            }
+          } catch (error) {
+            console.error('Background error liking palette in Firebase:', error);
+            // Don't show error to user since local update succeeded
+          }
+        })();
       }
     } catch (error) {
+      // This catch only triggers for errors in the main function scope
       console.error('Error updating palette:', error);
       toast.error('Failed to update palette');
     }

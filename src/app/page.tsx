@@ -26,6 +26,7 @@ import { cn } from '../lib/utils';
 import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
 import ColorControls from './components/ui/ColorControls';
+import { addDocument } from '../lib/firebase/firebaseUtils';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -1205,48 +1206,66 @@ export default function Home() {
     }
   }
   
-  // Update the handleSavePalette function to only keep the essential toast message
-  const handleSavePalette = () => {
+  // Update the handleSavePalette function to save to Firestore instead of localStorage
+  const handleSavePalette = async () => {
     // Get the current palette
     const paletteToSave = [...randomColors];
     
     try {
-      // Create a new palette object with a unique ID
-      const paletteId = Date.now().toString();
+      // Show immediate feedback to improve perceived performance
+      toast.success('Palette saved!');
       
       // Create a new palette object
       const newPalette = {
-        id: paletteId,
-        colors: paletteToSave,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Get existing saved palettes from localStorage or initialize empty array
-      const savedPalettes = JSON.parse(localStorage.getItem('savedPalettes') || '[]');
-      
-      // Add to popular palettes
-      const popularPalettes = JSON.parse(localStorage.getItem('popularPalettes') || '[]');
-      const popularPalette = {
-        id: paletteId,
         colors: paletteToSave,
         createdAt: new Date().toISOString(),
         likes: 1 // Start with 1 like since the creator likes it
       };
       
-      // Add to liked palettes
+      // Generate a temporary ID for localStorage
+      const tempId = 'temp_' + Date.now();
+      
+      // Update localStorage first for immediate response
+      const savedPalettes = JSON.parse(localStorage.getItem('savedPalettes') || '[]');
       const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
-      likedPalettes.push(paletteId);
       
-      // Save all to localStorage
-      savedPalettes.push(newPalette);
-      popularPalettes.push(popularPalette);
+      // Add to localStorage with temporary ID
+      savedPalettes.push({
+        id: tempId,
+        colors: paletteToSave,
+        createdAt: new Date().toISOString()
+      });
       
+      likedPalettes.push(tempId);
+      
+      // Save to localStorage immediately
       localStorage.setItem('savedPalettes', JSON.stringify(savedPalettes));
-      localStorage.setItem('popularPalettes', JSON.stringify(popularPalettes));
       localStorage.setItem('likedPalettes', JSON.stringify(likedPalettes));
       
-      // Keep only the essential saving message
-      toast.success('Palette saved!');
+      // Now save to Firebase in the background (don't await)
+      addDocument('palettes', newPalette)
+        .then(result => {
+          const firestoreId = result.id;
+          console.log('Saved palette with Firestore ID:', firestoreId);
+          
+          // Update the localStorage entries with the real Firebase ID
+          const updatedPalettes = savedPalettes.map(palette => 
+            palette.id === tempId ? { ...palette, id: firestoreId } : palette
+          );
+          
+          const updatedLikedPalettes = likedPalettes.map(id => 
+            id === tempId ? firestoreId : id
+          );
+          
+          // Update localStorage with the real IDs
+          localStorage.setItem('savedPalettes', JSON.stringify(updatedPalettes));
+          localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
+        })
+        .catch(error => {
+          console.error('Background Firebase save failed:', error);
+          // Don't show error to user since localStorage save succeeded
+        });
+      
     } catch (error) {
       console.error('Error saving palette:', error);
       toast.error('Failed to save palette. Please try again.');
