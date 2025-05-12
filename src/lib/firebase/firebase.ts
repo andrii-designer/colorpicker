@@ -9,6 +9,9 @@ const hasValidConfig =
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
+// Add debugging for environment variables
+console.log("Firebase config available:", hasValidConfig);
+
 // Use fallback config if environment variables are not set
 const firebaseConfig = hasValidConfig ? {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -27,6 +30,9 @@ const firebaseConfig = hasValidConfig ? {
   appId: "1:123456789:web:abc123def456",
 };
 
+// Log the current config being used (without sensitive values)
+console.log("Using Firebase project:", firebaseConfig.projectId);
+
 // Initialize Firebase
 let app;
 let auth;
@@ -38,12 +44,17 @@ try {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  console.log("Firebase initialized successfully");
 } catch (error) {
   console.error("Firebase initialization error:", error);
   // Create empty mock objects if Firebase initialization fails
   app = null;
   auth = {
-    onAuthStateChanged: () => () => {},
+    onAuthStateChanged: (callback: any) => {
+      console.log("Auth state change called with mock auth");
+      callback(null);
+      return () => {};
+    },
     currentUser: null,
   } as any;
   db = {} as any;

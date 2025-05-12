@@ -40,6 +40,7 @@ const getDocumentById = async (collectionName: string, id: string) => {
 export default function SavedPalettes() {
   const [savedPalettes, setSavedPalettes] = useState<SavedPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [likedPalettes, setLikedPalettes] = useState<string[]>([]);
 
@@ -61,55 +62,84 @@ export default function SavedPalettes() {
     const loadPalettes = async () => {
       try {
         setIsLoading(true);
+        setLoadingError(null);
         
-        // Load local saved palettes
+        // Load local saved palettes first to ensure we have something to show
         const storedPalettes = localStorage.getItem('savedPalettes');
         let localPalettes: SavedPalette[] = [];
         
         if (storedPalettes) {
-          localPalettes = JSON.parse(storedPalettes);
+          try {
+            localPalettes = JSON.parse(storedPalettes);
+            console.log('Loaded local palettes:', localPalettes.length);
+            
+            // Update UI immediately with local data
+            if (localPalettes.length > 0) {
+              setSavedPalettes(localPalettes);
+              setIsLoading(false);
+            }
+          } catch (e) {
+            console.error('Error parsing local palettes:', e);
+            // Continue with empty local palettes
+          }
         }
         
         // Get liked palettes
         const storedLikedPalettes = localStorage.getItem('likedPalettes');
         if (storedLikedPalettes) {
-          setLikedPalettes(JSON.parse(storedLikedPalettes));
+          try {
+            setLikedPalettes(JSON.parse(storedLikedPalettes));
+          } catch (e) {
+            console.error('Error parsing liked palettes:', e);
+          }
         }
         
         // Fetch palettes from Firestore to merge with local data
-        // This ensures we have the latest palette data
-        const firestorePalettes = await getDocuments('palettes');
-        
-        // Combine local and Firestore palettes, giving priority to Firestore data
-        // but only keeping palettes the user has saved
-        const allPalettes = localPalettes.map(localPalette => {
-          // Check if this palette exists in Firestore
-          const matchingFirestorePalette = firestorePalettes.find(
-            (p: any) => p.id === localPalette.id
-          ) as { id: string; colors?: string[]; createdAt?: string } | undefined;
+        console.log('Fetching Firestore palettes');
+        try {
+          const firestorePalettes = await getDocuments('palettes');
+          console.log('Fetched Firestore palettes:', firestorePalettes.length);
           
-          if (matchingFirestorePalette) {
-            // Use Firestore data but keep as a saved palette format
-            return {
-              id: matchingFirestorePalette.id,
-              colors: matchingFirestorePalette.colors || localPalette.colors,
-              createdAt: matchingFirestorePalette.createdAt || localPalette.createdAt
-            };
+          // If we have Firestore data, merge it
+          if (firestorePalettes && firestorePalettes.length > 0) {
+            // Combine local and Firestore palettes, giving priority to Firestore data
+            // but only keeping palettes the user has saved
+            const allPalettes = localPalettes.map(localPalette => {
+              // Check if this palette exists in Firestore
+              const matchingFirestorePalette = firestorePalettes.find(
+                (p: any) => p.id === localPalette.id
+              ) as { id: string; colors?: string[]; createdAt?: string } | undefined;
+              
+              if (matchingFirestorePalette) {
+                // Use Firestore data but keep as a saved palette format
+                return {
+                  id: matchingFirestorePalette.id,
+                  colors: matchingFirestorePalette.colors || localPalette.colors,
+                  createdAt: matchingFirestorePalette.createdAt || localPalette.createdAt
+                };
+              }
+              
+              // Keep local palettes that aren't in Firestore
+              return localPalette;
+            });
+            
+            // Sort by creation date (newest first)
+            allPalettes.sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            
+            setSavedPalettes(allPalettes);
           }
-          
-          // Keep local palettes that aren't in Firestore
-          return localPalette;
-        });
-        
-        // Sort by creation date (newest first)
-        allPalettes.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        
-        setSavedPalettes(allPalettes);
+        } catch (firestoreError) {
+          console.error('Error fetching from Firestore:', firestoreError);
+          // Just keep using local data, don't show error to user
+          if (localPalettes.length === 0) {
+            setLoadingError('Error loading palettes from server. Using local data only.');
+          }
+        }
       } catch (error) {
         console.error('Error loading saved palettes:', error);
-        toast.error('Failed to load saved palettes');
+        setLoadingError('Failed to load palettes. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -306,6 +336,10 @@ export default function SavedPalettes() {
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-pulse text-gray-400">Loading saved palettes...</div>
+          </div>
+        ) : loadingError ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p className="text-yellow-700">{loadingError}</p>
           </div>
         ) : savedPalettes.length === 0 ? (
           <div className="bg-gray-100 p-8 rounded-lg text-center">

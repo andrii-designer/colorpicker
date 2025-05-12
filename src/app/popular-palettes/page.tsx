@@ -41,6 +41,7 @@ interface PopularPalette {
 export default function PopularPalettes() {
   const [popularPalettes, setPopularPalettes] = useState<PopularPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [likedPalettes, setLikedPalettes] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
@@ -62,32 +63,50 @@ export default function PopularPalettes() {
     const fetchPalettes = async () => {
       try {
         setIsLoading(true);
+        setLoadingError(null);
         
-        // Load popular palettes from Firestore
-        const palettes = await getDocuments('palettes');
-        
-        // Sort by likes in descending order and ensure proper typing
-        const typedPalettes = palettes.map((p: any) => ({
-          id: p.id,
-          colors: p.colors || [],
-          createdAt: p.createdAt || new Date().toISOString(),
-          likes: p.likes || 0
-        })) as PopularPalette[];
-        
-        typedPalettes.sort((a, b) => b.likes - a.likes);
-        setPopularPalettes(typedPalettes);
-        
-        // Load liked palettes from localStorage
+        // First load liked palettes from localStorage (this is instant)
         const storedLikedPalettes = localStorage.getItem('likedPalettes');
-        if (storedLikedPalettes) {
-          setLikedPalettes(JSON.parse(storedLikedPalettes));
-        } else {
-          // Initialize liked palettes if not exists
-          localStorage.setItem('likedPalettes', JSON.stringify([]));
+        try {
+          if (storedLikedPalettes) {
+            setLikedPalettes(JSON.parse(storedLikedPalettes));
+          } else {
+            // Initialize liked palettes if not exists
+            localStorage.setItem('likedPalettes', JSON.stringify([]));
+          }
+        } catch (e) {
+          console.error('Error parsing liked palettes from localStorage:', e);
+          // Continue with empty liked palettes
+        }
+        
+        // Then try to load from Firestore with timeout/retry logic
+        console.log('Fetching popular palettes from Firestore');
+        try {
+          const palettes = await getDocuments('palettes');
+          console.log('Fetched Firestore palettes:', palettes.length);
+          
+          if (palettes && palettes.length > 0) {
+            // Sort by likes in descending order and ensure proper typing
+            const typedPalettes = palettes.map((p: any) => ({
+              id: p.id,
+              colors: p.colors || [],
+              createdAt: p.createdAt || new Date().toISOString(),
+              likes: p.likes || 0
+            })) as PopularPalette[];
+            
+            typedPalettes.sort((a, b) => b.likes - a.likes);
+            setPopularPalettes(typedPalettes);
+          } else {
+            // No palettes returned
+            setLoadingError('No popular palettes found. Try saving some palettes first.');
+          }
+        } catch (firestoreError) {
+          console.error('Error fetching from Firestore:', firestoreError);
+          setLoadingError('Error loading palettes from server. Please try again later.');
         }
       } catch (error) {
-        console.error('Error loading palettes:', error);
-        toast.error('Failed to load palettes');
+        console.error('Error in fetchPalettes:', error);
+        setLoadingError('Failed to load palettes. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -361,6 +380,16 @@ export default function PopularPalettes() {
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-pulse text-gray-400">Loading popular palettes...</div>
+          </div>
+        ) : loadingError ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p className="text-yellow-700">{loadingError}</p>
+            <Link 
+              href="/" 
+              className="mt-4 inline-flex items-center px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
+            >
+              Create a Palette
+            </Link>
           </div>
         ) : popularPalettes.length === 0 ? (
           <div className="bg-gray-100 p-8 rounded-lg text-center">
