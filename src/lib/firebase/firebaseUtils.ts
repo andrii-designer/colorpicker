@@ -21,6 +21,32 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
+// Add a simple cache for document collections
+const cache = {
+  collections: new Map<string, {data: any[], timestamp: number}>(),
+  maxAge: 60000, // Cache expiration in ms (1 minute)
+  
+  get: function(collectionName: string) {
+    const entry = this.collections.get(collectionName);
+    if (!entry) return null;
+    
+    // Check if cache is still valid
+    if (Date.now() - entry.timestamp > this.maxAge) {
+      this.collections.delete(collectionName);
+      return null;
+    }
+    
+    return entry.data;
+  },
+  
+  set: function(collectionName: string, data: any[]) {
+    this.collections.set(collectionName, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+};
+
 // Auth functions
 export const logoutUser = () => signOut(auth);
 
@@ -45,6 +71,9 @@ export const addDocument = async (collectionName: string, data: any) => {
     const docRef = await addDoc(collection(db, collectionName), dataWithoutId);
     console.log(`Document added with Firestore ID: ${docRef.id}`);
     
+    // Invalidate cache for this collection
+    cache.collections.delete(collectionName);
+    
     // Return both the document reference and the data with the new ID
     return {
       id: docRef.id,
@@ -64,14 +93,19 @@ const timeout = (ms: number) => {
   );
 };
 
-// Main function with retry logic 
-export const getDocuments = async (collectionName: string, maxRetries = 1, timeoutMs = 5000) => {
+// Main function with retry logic and caching
+export const getDocuments = async (collectionName: string, maxRetries = 1, timeoutMs = 3000) => {
+  // Check cache first
+  const cachedData = cache.get(collectionName);
+  if (cachedData) {
+    console.log(`Using cached data for '${collectionName}' (${cachedData.length} items)`);
+    return cachedData;
+  }
+  
   let retries = 0;
   
   // Add debug info
-  console.log(`Fetching popular palettes from Firestore`);
-  console.log(`Firebase DB instance:`, typeof db);
-  console.log(`Firebase collection name:`, collectionName);
+  console.log(`Fetching documents from '${collectionName}'`);
   
   const fetchWithRetry = async (): Promise<any[]> => {
     try {
@@ -92,10 +126,15 @@ export const getDocuments = async (collectionName: string, maxRetries = 1, timeo
       // If we get here, the operation succeeded
       console.log(`Successfully fetched ${result.docs.length} documents from '${collectionName}'`);
       
-      return result.docs.map(doc => ({
+      const documents = result.docs.map(doc => ({
         id: doc.id, // This is the Firestore ID
         ...doc.data()
       }));
+      
+      // Store in cache
+      cache.set(collectionName, documents);
+      
+      return documents;
     } catch (error) {
       console.error(`Error getting documents from ${collectionName}:`, error);
       
@@ -114,11 +153,9 @@ export const getDocuments = async (collectionName: string, maxRetries = 1, timeo
   };
   
   const result = await fetchWithRetry();
-  console.log(`Fetched Firestore palettes response:`, result);
-  console.log(`Fetched Firestore palettes count:`, result.length);
   
   if (result.length === 0) {
-    console.log(`No palettes found in Firestore`);
+    console.log(`No documents found in '${collectionName}'`);
   }
   
   return result;
@@ -156,6 +193,10 @@ export const updateDocument = async (collectionName: string, id: string, data: a
     }
     
     await updateDoc(docRef, data);
+    
+    // Invalidate cache for this collection
+    cache.collections.delete(collectionName);
+    
     console.log(`Document updated successfully: ${id}`);
     return true;
   } catch (error) {
@@ -168,6 +209,10 @@ export const deleteDocument = async (collectionName: string, id: string) => {
   try {
     console.log(`Deleting document from ${collectionName} with ID: ${id}`);
     await deleteDoc(doc(db, collectionName, id));
+    
+    // Invalidate cache for this collection
+    cache.collections.delete(collectionName);
+    
     console.log(`Document deleted successfully: ${id}`);
     return true;
   } catch (error) {

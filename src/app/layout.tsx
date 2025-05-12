@@ -1,5 +1,12 @@
 import "./globals.css";
 import { Inter } from 'next/font/google';
+import dynamic from 'next/dynamic';
+
+// Dynamically import the prefetcher to avoid SSR issues
+const PalettesPrefetcher = dynamic(
+  () => import('./components/PalettesPrefetcher'),
+  { ssr: false }
+);
 
 // Initialize the Inter font
 const inter = Inter({
@@ -25,6 +32,8 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         {children}
+        {/* Prefetch palettes data in the background */}
+        <PalettesPrefetcher />
       </body>
     </html>
   );

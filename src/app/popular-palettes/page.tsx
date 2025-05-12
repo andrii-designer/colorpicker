@@ -38,6 +38,29 @@ interface PopularPalette {
   likes: number;
 }
 
+// Skeleton component for loading state
+const PaletteSkeleton = () => (
+  <div className="border border-gray-200 rounded-lg overflow-hidden animate-pulse">
+    <div className="flex h-24">
+      {[...Array(5)].map((_, index) => (
+        <div 
+          key={index} 
+          className="flex-1"
+          style={{ backgroundColor: `rgb(${220 + index * 8}, ${220 + index * 8}, ${220 + index * 8})` }}
+        />
+      ))}
+    </div>
+    <div className="p-4 flex justify-between items-center">
+      <div className="bg-gray-200 h-4 w-24 rounded"></div>
+      <div className="flex items-center gap-3">
+        <div className="h-8 w-8 rounded-full bg-gray-200"></div>
+        <div className="h-4 w-6 bg-gray-200 rounded"></div>
+        <div className="h-8 w-8 rounded-full bg-gray-200"></div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function PopularPalettes() {
   const [popularPalettes, setPopularPalettes] = useState<PopularPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,72 +81,55 @@ export default function PopularPalettes() {
     return () => unsubscribe();
   }, []);
   
-  // Load popular palettes from Firestore and liked palettes from localStorage
+  // Initialize liked palettes from localStorage immediately
+  useEffect(() => {
+    try {
+      const storedLikedPalettes = localStorage.getItem('likedPalettes');
+      if (storedLikedPalettes) {
+        setLikedPalettes(JSON.parse(storedLikedPalettes));
+      } else {
+        // Initialize liked palettes if not exists
+        localStorage.setItem('likedPalettes', JSON.stringify([]));
+      }
+    } catch (e) {
+      console.error('Error parsing liked palettes from localStorage:', e);
+    }
+  }, []);
+  
+  // Load popular palettes
   useEffect(() => {
     const fetchPalettes = async () => {
+      if (!isLoading) return; // Prevent duplicate fetches
+      
       try {
-        setIsLoading(true);
-        setLoadingError(null);
+        // Fetch from Firestore
+        const firestorePalettes = await getDocuments('palettes');
         
-        // First load liked palettes from localStorage (this is instant)
-        const storedLikedPalettes = localStorage.getItem('likedPalettes');
-        try {
-          if (storedLikedPalettes) {
-            setLikedPalettes(JSON.parse(storedLikedPalettes));
-          } else {
-            // Initialize liked palettes if not exists
-            localStorage.setItem('likedPalettes', JSON.stringify([]));
-          }
-        } catch (e) {
-          console.error('Error parsing liked palettes from localStorage:', e);
-          // Continue with empty liked palettes
-        }
-        
-        // Then try to load from Firestore with timeout/retry logic
-        console.log('Fetching popular palettes from Firestore');
-        try {
-          // Log firebase instance to debug
-          console.log('Firebase DB instance:', db);
-          console.log('Firebase collection name: palettes');
+        if (firestorePalettes && firestorePalettes.length > 0) {
+          // Deduplicate and process palettes
+          const uniquePalettes: { [key: string]: PopularPalette } = {};
           
-          const firestorePalettes = await getDocuments('palettes');
-          console.log('Fetched Firestore palettes response:', firestorePalettes);
-          console.log('Fetched Firestore palettes count:', firestorePalettes.length);
+          firestorePalettes.forEach((palette: any) => {
+            const colorKey = (palette.colors || []).join(',').toLowerCase();
+            if (!colorKey.length) return; // Skip palettes with no colors
+            
+            if (!uniquePalettes[colorKey] || (uniquePalettes[colorKey].likes < palette.likes)) {
+              uniquePalettes[colorKey] = {
+                id: palette.id,
+                colors: palette.colors || [],
+                createdAt: palette.createdAt || new Date().toISOString(),
+                likes: palette.likes || 0
+              };
+            }
+          });
           
-          if (firestorePalettes && firestorePalettes.length > 0) {
-            // Deduplicate palettes based on colors
-            const uniquePalettes: { [key: string]: PopularPalette } = {};
-            
-            firestorePalettes.forEach((palette: any) => {
-              const colorKey = (palette.colors || []).join(',').toLowerCase();
-              if (!colorKey.length) return; // Skip palettes with no colors
-              
-              if (!uniquePalettes[colorKey] || (uniquePalettes[colorKey].likes < palette.likes)) {
-                // Either this is a new color combination or this palette has more likes
-                uniquePalettes[colorKey] = {
-                  id: palette.id,
-                  colors: palette.colors || [],
-                  createdAt: palette.createdAt || new Date().toISOString(),
-                  likes: palette.likes || 0
-                };
-              }
-            });
-            
-            // Convert back to array and sort by likes in descending order
-            const typedPalettes = Object.values(uniquePalettes) as PopularPalette[];
-            typedPalettes.sort((a, b) => b.likes - a.likes);
-            
-            console.log('Deduplicated palette count:', typedPalettes.length);
-            console.log('Original palette count:', firestorePalettes.length);
-            setPopularPalettes(typedPalettes);
-          } else {
-            // No palettes returned
-            console.log('No palettes found in Firestore');
-            setLoadingError('No popular palettes found. Try saving some palettes first.');
-          }
-        } catch (firestoreError) {
-          console.error('Error fetching from Firestore:', firestoreError);
-          setLoadingError('Error loading palettes from server. Please try again later.');
+          // Convert back to array and sort by likes in descending order
+          const typedPalettes = Object.values(uniquePalettes) as PopularPalette[];
+          typedPalettes.sort((a, b) => b.likes - a.likes);
+          
+          setPopularPalettes(typedPalettes);
+        } else {
+          setLoadingError('No popular palettes found. Try saving some palettes first.');
         }
       } catch (error) {
         console.error('Error in fetchPalettes:', error);
@@ -133,8 +139,16 @@ export default function PopularPalettes() {
       }
     };
     
+    // Start fetching immediately
     fetchPalettes();
-  }, []);
+    
+    // Set a timeout to hide the loading state even if fetch is slow
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) setIsLoading(false);
+    }, 3000);
+    
+    return () => clearTimeout(loadingTimeout);
+  }, [isLoading]);
 
   // Check if palette is already liked
   const isPaletteLiked = (paletteId: string) => {
@@ -404,14 +418,17 @@ export default function PopularPalettes() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-gray-200">
               <span className="text-gray-400">🎨</span>
-              <span className="text-lg font-medium">{popularPalettes.length}</span>
+              <span className="text-lg font-medium">{!isLoading ? popularPalettes.length : '-'}</span>
             </div>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-pulse text-gray-400">Loading popular palettes...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+            {/* Show skeleton loaders while loading */}
+            {[...Array(6)].map((_, index) => (
+              <PaletteSkeleton key={index} />
+            ))}
           </div>
         ) : loadingError ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
