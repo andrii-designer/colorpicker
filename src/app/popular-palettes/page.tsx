@@ -167,9 +167,6 @@ export default function PopularPalettes() {
         // Update UI
         setPopularPalettes(updatedPalettes);
         
-        // Show immediate feedback
-        toast.success('Palette unliked');
-        
         // Now perform Firebase operations in the background
         (async () => {
           try {
@@ -222,12 +219,8 @@ export default function PopularPalettes() {
             createdAt: new Date().toISOString()
           });
           localStorage.setItem('savedPalettes', JSON.stringify(savedPalettes));
-          
-          // Show explicit notification that palette was saved
-          toast.success('Palette saved to your collection');
         } else {
-          // Just show like confirmation
-          toast.success('Palette liked');
+          // Remove toast notification for like
         }
         
         // Now perform Firebase operations in the background
@@ -285,7 +278,7 @@ export default function PopularPalettes() {
     } catch (error) {
       // This catch only triggers for errors in the main function scope
       console.error('Error updating palette:', error);
-      toast.error('Failed to update palette');
+      // Remove toast error notification
     }
   };
 

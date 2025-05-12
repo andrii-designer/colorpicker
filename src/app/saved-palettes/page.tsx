@@ -127,7 +127,7 @@ export default function SavedPalettes() {
               return localPalette;
             });
             
-            // Sort by creation date (newest first)
+            // Sort by creation date (newest first) - always use the same sorting logic
             allPalettes.sort((a, b) => 
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
@@ -160,6 +160,11 @@ export default function SavedPalettes() {
       const updatedPalettes = savedPalettes.filter(palette => palette.id !== id);
       const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
       const updatedLikedPalettes = likedPalettes.filter((paletteId: string) => paletteId !== id);
+      
+      // Ensure consistent sorting by creation date (newest first)
+      updatedPalettes.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
       
       // Update localStorage immediately
       localStorage.setItem('savedPalettes', JSON.stringify(updatedPalettes));
@@ -357,54 +362,57 @@ export default function SavedPalettes() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {savedPalettes.map(palette => (
-              <div key={palette.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="flex h-24">
-                  {palette.colors.map((color, index) => (
-                    <div 
-                      key={`${palette.id}-${index}`} 
-                      className="flex-1 cursor-pointer hover:opacity-90 relative group"
-                      style={{ backgroundColor: color }}
-                      onClick={() => handleColorClick(color)}
-                      title={`Click to copy ${color}`}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity">
-                        <span className="bg-white/80 text-xs font-mono px-2 py-1 rounded shadow">{color.toUpperCase()}</span>
+            {savedPalettes
+              // Ensure palettes are always sorted by creation date (newest first)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map(palette => (
+                <div key={palette.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex h-24">
+                    {palette.colors.map((color, index) => (
+                      <div 
+                        key={`${palette.id}-${index}`} 
+                        className="flex-1 cursor-pointer hover:opacity-90 relative group"
+                        style={{ backgroundColor: color }}
+                        onClick={() => handleColorClick(color)}
+                        title={`Click to copy ${color}`}
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/10 transition-opacity">
+                          <span className="bg-white/80 text-xs font-mono px-2 py-1 rounded shadow">{color.toUpperCase()}</span>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                  <div className="p-4 flex justify-between items-center">
+                    <div className="text-sm text-gray-500">
+                      {formatDate(palette.createdAt)}
                     </div>
-                  ))}
-                </div>
-                <div className="p-4 flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
-                    {formatDate(palette.createdAt)}
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => handleExportPalette(palette)}
-                      className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                      title="Download palette"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDeletePalette(palette.id)}
-                      className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500 transition-colors"
-                      title="Delete palette"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18"></path>
-                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
-                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                      </svg>
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleExportPalette(palette)}
+                        className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                        title="Download palette"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeletePalette(palette.id)}
+                        className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500 transition-colors"
+                        title="Delete palette"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18"></path>
+                          <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
+                          <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </main>
