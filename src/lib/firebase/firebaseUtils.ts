@@ -65,7 +65,7 @@ const timeout = (ms: number) => {
 };
 
 // Main function with retry logic 
-export const getDocuments = async (collectionName: string, maxRetries = 2, timeoutMs = 5000) => {
+export const getDocuments = async (collectionName: string, maxRetries = 1, timeoutMs = 3000) => {
   let retries = 0;
   
   const fetchWithRetry = async (): Promise<any[]> => {

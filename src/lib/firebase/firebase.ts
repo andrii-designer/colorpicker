@@ -11,6 +11,9 @@ const hasValidConfig =
 
 // Add debugging for environment variables
 console.log("Firebase config available:", hasValidConfig);
+console.log("Project ID available:", !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+console.log("Auth Domain available:", !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN);
+console.log("API Key available:", !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 
 // Use fallback config if environment variables are not set
 const firebaseConfig = hasValidConfig ? {
@@ -32,6 +35,7 @@ const firebaseConfig = hasValidConfig ? {
 
 // Log the current config being used (without sensitive values)
 console.log("Using Firebase project:", firebaseConfig.projectId);
+console.log("Using Firebase auth domain:", firebaseConfig.authDomain);
 
 // Initialize Firebase
 let app;

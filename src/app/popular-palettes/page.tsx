@@ -82,12 +82,17 @@ export default function PopularPalettes() {
         // Then try to load from Firestore with timeout/retry logic
         console.log('Fetching popular palettes from Firestore');
         try {
-          const palettes = await getDocuments('palettes');
-          console.log('Fetched Firestore palettes:', palettes.length);
+          // Log firebase instance to debug
+          console.log('Firebase DB instance:', db);
+          console.log('Firebase collection name: palettes');
           
-          if (palettes && palettes.length > 0) {
+          const firestorePalettes = await getDocuments('palettes');
+          console.log('Fetched Firestore palettes response:', firestorePalettes);
+          console.log('Fetched Firestore palettes count:', firestorePalettes.length);
+          
+          if (firestorePalettes && firestorePalettes.length > 0) {
             // Sort by likes in descending order and ensure proper typing
-            const typedPalettes = palettes.map((p: any) => ({
+            const typedPalettes = firestorePalettes.map((p: any) => ({
               id: p.id,
               colors: p.colors || [],
               createdAt: p.createdAt || new Date().toISOString(),
@@ -95,9 +100,11 @@ export default function PopularPalettes() {
             })) as PopularPalette[];
             
             typedPalettes.sort((a, b) => b.likes - a.likes);
+            console.log('Sorted and typed palettes:', typedPalettes.length);
             setPopularPalettes(typedPalettes);
           } else {
             // No palettes returned
+            console.log('No palettes found in Firestore');
             setLoadingError('No popular palettes found. Try saving some palettes first.');
           }
         } catch (firestoreError) {
@@ -215,25 +222,43 @@ export default function PopularPalettes() {
             console.log('Liking palette with Firestore ID:', palette.id);
             
             // Check if document exists first
-            const docRef = doc(db, 'palettes', palette.id);
-            const docSnap = await getDoc(docRef);
-            
-            if (docSnap.exists()) {
-              // Document exists, just update it
-              await updateDocument('palettes', palette.id, { likes: updatedLikes });
-            } else {
-              // Document doesn't exist - need to create it first
-              console.log('Palette not found in Firestore, creating it first');
+            try {
+              const docRef = doc(db, 'palettes', palette.id);
+              const docSnap = await getDoc(docRef);
               
-              // Create the palette document with the same ID
+              if (docSnap.exists()) {
+                // Document exists, just update it
+                console.log('Palette found in Firestore, updating likes to', updatedLikes);
+                await updateDocument('palettes', palette.id, { likes: updatedLikes });
+              } else {
+                // Document doesn't exist - need to create it first
+                console.log('Palette not found in Firestore, creating it first');
+                
+                // Create the palette document with the same ID
+                const newPaletteData = {
+                  id: palette.id, // Use the same ID
+                  colors: palette.colors,
+                  createdAt: palette.createdAt,
+                  likes: updatedLikes
+                };
+                
+                // Add document directly with the existing ID
+                await setDoc(docRef, newPaletteData);
+                console.log('Created palette with ID:', palette.id);
+              }
+            } catch (checkError) {
+              console.error('Error checking if palette exists:', checkError);
+              // Try to create a new document anyway as a fallback
+              console.log('Falling back to creating a new palette document');
+              
               const newPaletteData = {
-                id: palette.id, // Use the same ID
                 colors: palette.colors,
-                createdAt: palette.createdAt,
+                createdAt: palette.createdAt || new Date().toISOString(),
                 likes: updatedLikes
               };
               
-              // Add document directly with the existing ID
+              // Remove any potential id field from the data
+              const docRef = doc(db, 'palettes', palette.id);
               await setDoc(docRef, newPaletteData);
               console.log('Created palette with ID:', palette.id);
             }

@@ -97,6 +97,10 @@ export default function SavedPalettes() {
         // Fetch palettes from Firestore to merge with local data
         console.log('Fetching Firestore palettes');
         try {
+          // Add debug logs for Firebase connection
+          console.log('Firebase DB instance:', db);
+          console.log('Firebase collection name: palettes');
+          
           const firestorePalettes = await getDocuments('palettes');
           console.log('Fetched Firestore palettes:', firestorePalettes.length);
           
