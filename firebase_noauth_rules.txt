@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Palettes collection rules that work without authentication
+    match /palettes/{paletteId} {
+      // Anyone can read palettes
+      allow read: if true;
+      
+      // Anyone can create new palettes
+      allow create: if true;
+      
+      // Anyone can update palette properties including likes
+      // But only allow updating specific fields for security
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      
+      // Disallow deletion through the client
+      // You can still delete via Firebase console if needed
+      allow delete: if false;
+    }
+    
+    // Secure other collections by default
+    match /{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
