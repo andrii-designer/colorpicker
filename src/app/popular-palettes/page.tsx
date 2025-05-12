@@ -91,16 +91,30 @@ export default function PopularPalettes() {
           console.log('Fetched Firestore palettes count:', firestorePalettes.length);
           
           if (firestorePalettes && firestorePalettes.length > 0) {
-            // Sort by likes in descending order and ensure proper typing
-            const typedPalettes = firestorePalettes.map((p: any) => ({
-              id: p.id,
-              colors: p.colors || [],
-              createdAt: p.createdAt || new Date().toISOString(),
-              likes: p.likes || 0
-            })) as PopularPalette[];
+            // Deduplicate palettes based on colors
+            const uniquePalettes: { [key: string]: PopularPalette } = {};
             
+            firestorePalettes.forEach((palette: any) => {
+              const colorKey = (palette.colors || []).join(',').toLowerCase();
+              if (!colorKey.length) return; // Skip palettes with no colors
+              
+              if (!uniquePalettes[colorKey] || (uniquePalettes[colorKey].likes < palette.likes)) {
+                // Either this is a new color combination or this palette has more likes
+                uniquePalettes[colorKey] = {
+                  id: palette.id,
+                  colors: palette.colors || [],
+                  createdAt: palette.createdAt || new Date().toISOString(),
+                  likes: palette.likes || 0
+                };
+              }
+            });
+            
+            // Convert back to array and sort by likes in descending order
+            const typedPalettes = Object.values(uniquePalettes) as PopularPalette[];
             typedPalettes.sort((a, b) => b.likes - a.likes);
-            console.log('Sorted and typed palettes:', typedPalettes.length);
+            
+            console.log('Deduplicated palette count:', typedPalettes.length);
+            console.log('Original palette count:', firestorePalettes.length);
             setPopularPalettes(typedPalettes);
           } else {
             // No palettes returned
