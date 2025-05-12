@@ -65,12 +65,23 @@ const timeout = (ms: number) => {
 };
 
 // Main function with retry logic 
-export const getDocuments = async (collectionName: string, maxRetries = 1, timeoutMs = 3000) => {
+export const getDocuments = async (collectionName: string, maxRetries = 1, timeoutMs = 5000) => {
   let retries = 0;
+  
+  // Add debug info
+  console.log(`Fetching popular palettes from Firestore`);
+  console.log(`Firebase DB instance:`, typeof db);
+  console.log(`Firebase collection name:`, collectionName);
   
   const fetchWithRetry = async (): Promise<any[]> => {
     try {
       console.log(`Fetching documents from '${collectionName}' (attempt ${retries + 1}/${maxRetries + 1})`);
+      
+      // Validate db is properly initialized
+      if (!db || !db.type) {
+        console.warn('Firebase DB not properly initialized, returning empty array');
+        return [];
+      }
       
       // Use Promise.race to implement timeout with proper typing
       const result = await Promise.race([
@@ -102,7 +113,15 @@ export const getDocuments = async (collectionName: string, maxRetries = 1, timeo
     }
   };
   
-  return fetchWithRetry();
+  const result = await fetchWithRetry();
+  console.log(`Fetched Firestore palettes response:`, result);
+  console.log(`Fetched Firestore palettes count:`, result.length);
+  
+  if (result.length === 0) {
+    console.log(`No palettes found in Firestore`);
+  }
+  
+  return result;
 };
 
 export const getDocumentById = async (collectionName: string, id: string) => {

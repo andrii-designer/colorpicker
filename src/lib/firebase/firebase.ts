@@ -15,6 +15,9 @@ console.log("Project ID available:", !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_
 console.log("Auth Domain available:", !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN);
 console.log("API Key available:", !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 
+// Default project ID to use if env var is not available
+const DEFAULT_PROJECT_ID = "colorjogger";
+
 // Use fallback config if environment variables are not set
 const firebaseConfig = hasValidConfig ? {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -24,13 +27,13 @@ const firebaseConfig = hasValidConfig ? {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 } : {
-  // Dummy config for development - will not actually connect
-  apiKey: "demo-api-key",
-  authDomain: "demo-project.firebaseapp.com",
-  projectId: "demo-project",
-  storageBucket: "demo-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123def456",
+  // Fallback config - using a fixed configuration since we know the values
+  apiKey: "AIzaSyBHLhXaqLMY9gmtKYAUjsXdoMPvSoDvoQM",
+  authDomain: "colorjogger.firebaseapp.com",
+  projectId: DEFAULT_PROJECT_ID,
+  storageBucket: "colorjogger.firebasestorage.app",
+  messagingSenderId: "1033978676789",
+  appId: "1:1033978676789:web:49fb21560ccb79bce4137c",
 };
 
 // Log the current config being used (without sensitive values)
