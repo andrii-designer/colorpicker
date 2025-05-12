@@ -37,6 +37,13 @@ const getDocumentById = async (collectionName: string, id: string) => {
   }
 };
 
+// Helper function to sort palettes by createdAt date (newest first)
+const sortPalettesByDate = (palettes: SavedPalette[]) => {
+  return [...palettes].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+};
+
 export default function SavedPalettes() {
   const [savedPalettes, setSavedPalettes] = useState<SavedPalette[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,9 +80,10 @@ export default function SavedPalettes() {
             localPalettes = JSON.parse(storedPalettes);
             console.log('Loaded local palettes:', localPalettes.length);
             
-            // Update UI immediately with local data
+            // Update UI immediately with local data, already sorted
             if (localPalettes.length > 0) {
-              setSavedPalettes(localPalettes);
+              // Sort by date and set to state
+              setSavedPalettes(sortPalettesByDate(localPalettes));
               setIsLoading(false);
             }
           } catch (e) {
@@ -127,12 +135,11 @@ export default function SavedPalettes() {
               return localPalette;
             });
             
-            // Sort by creation date (newest first) - always use the same sorting logic
-            allPalettes.sort((a, b) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
+            // Sort by creation date (newest first) and store in state
+            setSavedPalettes(sortPalettesByDate(allPalettes));
             
-            setSavedPalettes(allPalettes);
+            // Also update localStorage with sorted palettes
+            localStorage.setItem('savedPalettes', JSON.stringify(sortPalettesByDate(allPalettes)));
           }
         } catch (firestoreError) {
           console.error('Error fetching from Firestore:', firestoreError);
@@ -161,12 +168,7 @@ export default function SavedPalettes() {
       const likedPalettes = JSON.parse(localStorage.getItem('likedPalettes') || '[]');
       const updatedLikedPalettes = likedPalettes.filter((paletteId: string) => paletteId !== id);
       
-      // Ensure consistent sorting by creation date (newest first)
-      updatedPalettes.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      
-      // Update localStorage immediately
+      // Update localStorage immediately with already-sorted palettes
       localStorage.setItem('savedPalettes', JSON.stringify(updatedPalettes));
       localStorage.setItem('likedPalettes', JSON.stringify(updatedLikedPalettes));
       
@@ -362,10 +364,7 @@ export default function SavedPalettes() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {savedPalettes
-              // Ensure palettes are always sorted by creation date (newest first)
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              .map(palette => (
+            {savedPalettes.map(palette => (
                 <div key={palette.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="flex h-24">
                     {palette.colors.map((color, index) => (
