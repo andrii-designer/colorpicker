@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { cn } from '../../../lib/utils'
 import Image from 'next/image'
 import BobbyIcon from '../../assets/bobby.svg'
@@ -21,6 +21,7 @@ interface ChatPanelProps {
 
 export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasClickedAskBobby, setHasClickedAskBobby] = useState(false);
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -28,6 +29,12 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+  
+  // Handle click on Ask Bobby button
+  const handleAskBobbyClick = () => {
+    setHasClickedAskBobby(true);
+    onAskForAdvice();
+  };
   
   return (
     <div 
@@ -47,7 +54,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
             scrollbarColor: '#E0E0E0 transparent'
           }}
         >
-          {messages.length > 0 ? (
+          {messages.length > 0 && hasClickedAskBobby ? (
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div
@@ -97,7 +104,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
                 fontWeight: 400
-              }}>Ask Bobby for advice about your color palette</p>
+              }}>Press Enter to generate palettes and ask Bobby for advice</p>
             </div>
           )}
         </div>
@@ -106,7 +113,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
       {/* Fixed position button container */}
       <div className="absolute left-0 right-0 bottom-0 h-[124px] pt-4 px-4" style={{ border: 'none', background: 'transparent' }}>
         <button
-          onClick={onAskForAdvice}
+          onClick={handleAskBobbyClick}
           className="w-full h-[48px] rounded-[999px] border border-black flex items-center justify-center mb-2"
           style={{ 
             fontFamily: 'Inter', 
