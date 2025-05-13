@@ -27,7 +27,7 @@ import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
 import ColorControls from './components/ui/ColorControls';
 import { addDocument } from '../lib/firebase/firebaseUtils';
-import { MobileNavigation } from '../components/ui/MobileNavigation';
+import { MobileNavigation } from './components/ui/MobileNavigation';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
