@@ -509,37 +509,54 @@ const ColorPickerModal = ({
   };
   
   const getModalStyle = () => {
+    const viewportWidth = window.innerWidth;
+    const isMobile = viewportWidth < 768;
+    
+    // For mobile, always center in the middle of the screen
+    if (isMobile) {
+      return {
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 100,
+        maxHeight: '80vh',
+        overflowY: 'auto'
+      } as React.CSSProperties;
+    }
+    
+    // Desktop positioning relative to click position
     if (anchorPosition) {
       // Calculate viewport-relative positions
       const viewportHeight = window.innerHeight;
       const topPosition = anchorPosition.y;
       
       // Check if there's enough space below
-      const modalHeight = 450; // Increased height for the added sliders
+      const modalHeight = 450;
       const spaceBelow = viewportHeight - topPosition;
       
       // If not enough space below, position above
       if (spaceBelow < modalHeight + 20) {
         return {
-          position: 'fixed', // Use fixed instead of absolute
+          position: 'fixed',
           left: `${anchorPosition.x}px`,
-          bottom: `${viewportHeight - topPosition + 10}px`, // Position above the button
+          bottom: `${viewportHeight - topPosition + 10}px`,
           transform: 'translateX(-50%)',
           zIndex: 100,
-          maxHeight: `${topPosition - 20}px`, // Limit height to available space
-          overflowY: 'auto' // Add scroll to the modal itself if needed
+          maxHeight: `${topPosition - 20}px`,
+          overflowY: 'auto'
         } as React.CSSProperties;
       }
       
       // Default position below
       return {
-        position: 'fixed', // Use fixed instead of absolute
+        position: 'fixed',
         left: `${anchorPosition.x}px`,
         top: `${topPosition + 10}px`,
         transform: 'translateX(-50%)',
         zIndex: 100,
-        maxHeight: `${spaceBelow - 20}px`, // Limit height to available space
-        overflowY: 'auto' // Add scroll to the modal itself if needed
+        maxHeight: `${spaceBelow - 20}px`,
+        overflowY: 'auto'
       } as React.CSSProperties;
     }
     return {};
@@ -548,7 +565,7 @@ const ColorPickerModal = ({
   return typeof document !== 'undefined' ? createPortal(
     <div 
       ref={modalRef}
-      className="bg-white rounded-lg shadow-xl p-4 w-[300px] pointer-events-auto"
+      className="bg-white rounded-lg shadow-xl p-4 w-[300px] md:w-[300px] max-w-[85vw] transform scale-[0.8] md:scale-100 origin-center pointer-events-auto"
       style={getModalStyle()}
     >
       <div className="mb-4">
@@ -693,7 +710,9 @@ const ColorPickerModal = ({
 
         {/* Color picker is always shown regardless of the active tab */}
         <div className="mt-3">
-          <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
+          <div className="max-h-[200px] md:max-h-none scale-75 md:scale-100 origin-top">
+            <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
+          </div>
         </div>
       </div>
       
@@ -1043,6 +1062,44 @@ export default function Home() {
   
   // Function to handle asking for advice from Bobby
   const handleAskForAdvice = useCallback(() => {
+    // Disable the Ask Bobby button temporarily
+    const askBobbyButton = document.querySelector('[data-ask-bobby]') as HTMLButtonElement;
+    if (askBobbyButton) {
+      askBobbyButton.disabled = true;
+    }
+    
+    // If advice has already been given for the current palette, show a toast
+    if (adviceGivenForCurrentPalette) {
+      toast.custom(
+        (t) => (
+          <div
+            className="px-4 py-2 rounded-lg shadow-md text-sm max-w-[250px] mx-auto"
+            style={{
+              background: '#f0f9ff',
+              color: '#0c4a6e',
+              border: '1px solid #bae6fd'
+            }}
+          >
+            <span role="img" aria-label="note" className="mr-1">📝</span>
+            Bobby has already analyzed this palette. Generate a new palette for more feedback.
+          </div>
+        ),
+        { 
+          duration: 3000,
+          position: 'bottom-center'
+        }
+      );
+      
+      // Re-enable button after a short delay
+      setTimeout(() => {
+        if (askBobbyButton) {
+          askBobbyButton.disabled = false;
+        }
+      }, 500);
+      
+      return;
+    }
+    
     // Use a timeout to ensure state updates don't cause layout shifts
     setTimeout(() => {
       try {
@@ -1089,9 +1146,9 @@ export default function Home() {
       } finally {
         // Re-enable button after a short delay
         setTimeout(() => {
-          const askBobbyButton = document.querySelector('[data-ask-bobby]');
+          const askBobbyButton = document.querySelector('[data-ask-bobby]') as HTMLButtonElement;
           if (askBobbyButton) {
-            askBobbyButton.removeAttribute('disabled');
+            askBobbyButton.disabled = false;
           }
         }, 500);
       }
@@ -1844,7 +1901,7 @@ export default function Home() {
               
               {/* Action buttons (undo, redo, save, download) */}
               <div className="mobile-actions mb-4">
-                <div className="inline-grid grid-cols-4 gap-3">
+                <div className="flex justify-between w-full">
                   <button 
                     onClick={handleUndo}
                     disabled={!canUndo}
@@ -1917,7 +1974,7 @@ export default function Home() {
             <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
               {/* Action buttons (undo, redo, save, download) */}
               <div className="mobile-actions mb-4">
-                <div className="inline-grid grid-cols-4 gap-3">
+                <div className="flex justify-between w-full">
                   <button 
                     onClick={handleUndo}
                     disabled={true}
