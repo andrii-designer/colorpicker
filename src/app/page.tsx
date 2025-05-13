@@ -1781,10 +1781,10 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="flex flex-col md:hidden h-screen overflow-hidden" style={{ height: 'var(--app-height)' }}>
+      <div className="mobile-palette-container md:hidden" style={{ height: 'var(--app-height)' }}>
         {randomColors.length > 0 ? (
           <>
-            <div className="flex-1 flex flex-col overflow-hidden"> 
+            <div className="mobile-colors-grid"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1797,7 +1797,7 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="flex flex-col flex-1 w-full">
+                  <div className="mobile-colors-grid">
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
@@ -1890,7 +1890,10 @@ export default function Home() {
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-3 pb-3 pt-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0.25rem))' }}>
+        <div className="px-3 pb-3 pt-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ 
+          paddingBottom: 'calc(12px + var(--safe-area-inset-bottom))',
+          marginBottom: 0
+        }}>
           <div className="flex gap-2">
             <button
               onClick={handleAskForAdvice}
@@ -1963,14 +1966,14 @@ const MobileSortableColorItem = ({
       ref={setNodeRef}
       style={{
         ...style,
+        backgroundColor: color,
       }}
-      className={`w-full flex-1 ${isDragging ? 'z-10' : 'z-0'}`}
+      className={`mobile-color-item w-full ${isDragging ? 'z-10' : 'z-0'}`}
       {...attributes}
     >
       <div
         className="flex items-center justify-between w-full h-full"
         style={{ 
-          backgroundColor: color,
           boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : 'none',
         }}
         onClick={() => onColorClick(color)}
