@@ -27,6 +27,7 @@ import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
 import ColorControls from './components/ui/ColorControls';
 import { addDocument } from '../lib/firebase/firebaseUtils';
+import { MobileNavigation } from './components/ui/MobileNavigation';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -722,6 +723,9 @@ export default function Home() {
   const [showAdviceChat, setShowAdviceChat] = useState<boolean>(true);
   const [adviceMessages, setAdviceMessages] = useState<AdviceMessage[]>([]);
   
+  // Add a flag to track if advice has been given for the current palette
+  const [adviceGivenForCurrentPalette, setAdviceGivenForCurrentPalette] = useState<boolean>(false);
+  
   // State for drag and drop
   const [colorIds, setColorIds] = useState<string[]>([]);
   
@@ -1019,6 +1023,9 @@ export default function Home() {
       };
       
       console.log(`Button: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
+      
+      // Reset the advice flag when a new palette is generated
+      setAdviceGivenForCurrentPalette(false);
     } catch (error) {
       console.error("Error generating random palette:", error);
       toast.error("Failed to generate palette, trying alternative method...");
@@ -1084,6 +1091,9 @@ export default function Home() {
       
       // Close the harmony options dropdown
       setShowHarmonyOptions(false);
+      
+      // Reset the advice flag when a new palette is generated
+      setAdviceGivenForCurrentPalette(false);
     } catch (error) {
       console.error(`Error generating ${harmonyType} palette:`, error);
       toast.error(`Failed to generate ${harmonyType} palette`);
@@ -1106,6 +1116,28 @@ export default function Home() {
     
     // Disable button if found
     if (askBobbyButton) askBobbyButton.disabled = true;
+    
+    // If advice has already been given for the current palette, don't generate new advice
+    if (adviceGivenForCurrentPalette) {
+      toast("Bobby has already analyzed this palette. Generate a new palette for more feedback.", {
+        duration: 3000,
+        icon: '📝',
+        style: {
+          background: '#f0f9ff',
+          color: '#0c4a6e',
+          border: '1px solid #bae6fd'
+        }
+      });
+      
+      // Re-enable button after a short delay
+      setTimeout(() => {
+        if (askBobbyButton) {
+          askBobbyButton.disabled = false;
+        }
+      }, 500);
+      
+      return;
+    }
     
     // Use a timeout to ensure state updates don't cause layout shifts
     setTimeout(() => {
@@ -1131,6 +1163,9 @@ export default function Home() {
           
           // Clear stored analysis after using it
           (window as any).__latestAnalysis = null;
+          
+          // Set the flag that advice has been given for this palette
+          setAdviceGivenForCurrentPalette(true);
         } else {
           // If no stored analysis, generate one now
           const analysis = analyzeColorPalette(randomColors);
@@ -1148,6 +1183,9 @@ export default function Home() {
           };
           
           setAdviceMessages(prev => [...prev, newMessage]);
+          
+          // Set the flag that advice has been given for this palette
+          setAdviceGivenForCurrentPalette(true);
         }
       } finally {
         // Re-enable button after a short delay
@@ -1224,6 +1262,9 @@ export default function Home() {
         };
         
         console.log(`Updated color, now at history position ${newHistory.length - 1}`);
+        
+        // Reset the advice flag when a color is changed
+        setAdviceGivenForCurrentPalette(false);
       }
     }
     
@@ -1275,6 +1316,9 @@ export default function Home() {
           advice: analysis.advice,
           score: analysis.score
         };
+        
+        // Reset the advice flag when colors are rearranged
+        setAdviceGivenForCurrentPalette(false);
       }
     }
     
@@ -1296,6 +1340,9 @@ export default function Home() {
         advice: analysis.advice,
         score: analysis.score
       };
+      
+      // Reset the advice flag when undoing
+      setAdviceGivenForCurrentPalette(false);
     }
   };
 
@@ -1312,6 +1359,9 @@ export default function Home() {
         advice: analysis.advice,
         score: analysis.score
       };
+      
+      // Reset the advice flag when redoing
+      setAdviceGivenForCurrentPalette(false);
     }
   };
   
@@ -1564,15 +1614,18 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
       <header className="bg-white py-4 flex-shrink-0">
         <div className="flex items-center justify-between w-full px-4">
-          <div className="w-[200px] flex-shrink-0">
+          <div className="flex-shrink-0">
             <Logo />
           </div>
           
           <div className="flex-shrink-0">
             <Navigation />
+            <div className="md:hidden">
+              <MobileNavigation />
+            </div>
           </div>
           
-          <div className="w-[320px] flex justify-end space-x-3 flex-shrink-0">
+          <div className="hidden md:flex justify-end space-x-3 flex-shrink-0">
             <button
               onClick={handleUndo}
               disabled={!canUndo}
@@ -1605,7 +1658,7 @@ export default function Home() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
               </svg>
-              <span className="ml-2">Save</span>
+              <span className="ml-2 hidden lg:inline">Save</span>
             </button>
             
             <button
@@ -1618,13 +1671,63 @@ export default function Home() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span className="ml-2">Download</span>
+              <span className="ml-2 hidden lg:inline">Download</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex flex-1 overflow-hidden h-full pb-4">
+      {/* Mobile action buttons */}
+      <div className="md:hidden flex justify-between gap-2 px-4 mt-2 mb-4">
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className={`w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          title="Undo"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 14L4 9l5-5"/>
+            <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
+          </svg>
+        </button>
+        
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo}
+          className={`w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          title="Redo"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 14l5-5-5-5"/>
+            <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
+          </svg>
+        </button>
+        
+        <button
+          onClick={handleSavePalette}
+          className="w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5]"
+          title="Save palette"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </button>
+        
+        <button
+          onClick={handleExportPalette}
+          className="w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5]"
+          title="Export palette as image"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Desktop layout */}
+      <main className="hidden md:flex flex-1 overflow-hidden h-full pb-4">
         {/* Color palette section - Takes full height */}
         <div className="flex-1 overflow-hidden flex pl-4">
           {/* DnD Context for drag and drop functionality */}
@@ -1664,7 +1767,7 @@ export default function Home() {
           </DndContext>
         </div>
         
-        {/* Chat panel - Fixed width (338px) on the right */}
+        {/* Chat panel - Fixed width on desktop */}
         <div className="w-[338px] flex-shrink-0 h-full overflow-hidden relative">
           <ChatPanel
             messages={adviceMessages}
@@ -1674,6 +1777,92 @@ export default function Home() {
           />
         </div>
       </main>
+      
+      {/* Mobile layout */}
+      <div className="flex flex-col md:hidden h-screen">
+        {randomColors.length > 0 ? (
+          <>
+            <div className="flex-1 min-h-0"> 
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                modifiers={[restrictToVerticalAxis]}
+              >
+                <SortableContext
+                  items={colorIds.slice(0, randomColors.length)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="grid grid-rows-5 h-full">
+                    {randomColors.map((color, index) => {
+                      const itemId = colorIds[index] || `color-${index}`;
+                      const isBeingDragged = activeId === itemId;
+                      
+                      return (
+                        <MobileSortableColorItem
+                          key={itemId}
+                          id={itemId}
+                          color={color}
+                          index={index}
+                          onColorClick={handleColorClick}
+                          onEditClick={handleEditClick}
+                          isDragging={isBeingDragged}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          
+            <div className="mt-4 mx-4 rounded-xl bg-gray-100 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 mr-3">
+                  <Image src={BobbyIcon} alt="Bobby" width={48} height={48} />
+                </div>
+                <div>
+                  <div className="flex items-center mb-1">
+                    <span className="font-medium">Rating: </span>
+                    <span className="ml-1 text-blue-500 font-medium">{randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}</span>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {randomColorAdvice || "The colors are generally well-chosen, but one feels slightly off. Try tweaking it for better balance. Try creating more variety in lightness values for better visual hierarchy."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center flex-1 p-4">
+            <div className="flex items-center justify-center w-24 h-24 mb-4">
+              <Image src={BobbyIcon} alt="Bobby" width={100} height={100} />
+            </div>
+            <p className="text-center text-gray-500 mb-6">
+              Press Enter to generate palettes, or click Ask Bobby for advice
+            </p>
+          </div>
+        )}
+        
+        {/* Mobile Action Buttons */}
+        <div className="px-4 pb-6 mt-4">
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleAskForAdvice}
+              className="w-full flex items-center justify-center px-4 py-3 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-base font-medium">Ask Bobby</span>
+            </button>
+            <button
+              onClick={handleGenerateRandom}
+              className="w-full flex items-center justify-center px-4 py-3 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-base font-medium">Generate</span>
+            </button>
+          </div>
+        </div>
+      </div>
       
       {/* Keep all the modals and notifications */}
       {colorPickerVisible && (
@@ -1689,3 +1878,104 @@ export default function Home() {
     </div>
   );
 }
+
+// Mobile Sortable Color Item
+const MobileSortableColorItem = ({
+  id,
+  color,
+  index,
+  onColorClick,
+  onEditClick,
+  isDragging
+}: {
+  id: string;
+  color: string;
+  index: number;
+  onColorClick: (color: string) => void;
+  onEditClick: (color: string, index: number, event: React.MouseEvent) => void;
+  isDragging?: boolean;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ 
+    id,
+    animateLayoutChanges: () => false
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? transition : undefined,
+  };
+  
+  const isDark = tinycolor(color).isDark();
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        height: '100%',
+      }}
+      className={`w-full ${isDragging ? 'z-10' : 'z-0'}`}
+      {...attributes}
+    >
+      <div
+        className="flex items-center justify-between w-full h-full"
+        style={{ 
+          backgroundColor: color,
+          boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : 'none',
+        }}
+        onClick={() => onColorClick(color)}
+      >
+        <span className="font-mono text-base ml-4" style={{ color: isDark ? 'white' : 'black' }}>
+          {color.toUpperCase()}
+        </span>
+        <div className="flex space-x-2 mr-4">
+          {/* Edit button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditClick(color, index, e as React.MouseEvent);
+            }}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            style={{ color: isDark ? 'white' : 'black' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+          </button>
+          
+          {/* Copy button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(color);
+              toast.success(`Copied ${color.toUpperCase()} to clipboard`);
+            }}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            style={{ color: isDark ? 'white' : 'black' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+          </button>
+          
+          {/* Drag handle */}
+          <button
+            {...listeners}
+            className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            title="Drag to reorder"
+            style={{ color: isDark ? 'white' : 'black' }}
+          >
+            <span className="text-xs font-bold">↕</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

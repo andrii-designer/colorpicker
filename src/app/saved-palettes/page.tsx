@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from '../components/ui/Logo';
 import { Navigation } from '../components/ui/Navigation';
+import { MobileNavigation } from '../components/ui/MobileNavigation';
 import { ColorTags } from '../components/ui/ColorTags';
 import Link from 'next/link';
 import { toast, Toaster } from 'react-hot-toast';
@@ -436,15 +437,18 @@ export default function SavedPalettes() {
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
       <header className="bg-white py-4 flex-shrink-0">
         <div className="flex items-center justify-between w-full px-4">
-          <div className="w-[200px] flex-shrink-0">
+          <div className="flex-shrink-0">
             <Logo />
           </div>
           
           <div className="flex-shrink-0">
             <Navigation />
+            <div className="md:hidden">
+              <MobileNavigation />
+            </div>
           </div>
           
-          <div className="w-[320px] flex-shrink-0">
+          <div className="hidden md:block w-[320px] flex-shrink-0">
             {/* Empty div to maintain consistent header layout */}
           </div>
         </div>
