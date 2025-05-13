@@ -1781,10 +1781,10 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="mobile-palette-container md:hidden">
+      <div className="md:hidden color-palette-container overflow-hidden pb-60">
         {randomColors.length > 0 ? (
           <>
-            <div className="mobile-colors-grid"> 
+            <div className="mobile-palette-wrapper mb-4"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1797,13 +1797,13 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="mobile-colors-grid">
+                  <div className="flex flex-col w-full">
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
                       
                       return (
-                        <MobileSortableColorItem
+                        <ColorItem
                           key={itemId}
                           id={itemId}
                           color={color}
@@ -1818,96 +1818,167 @@ export default function Home() {
                 </SortableContext>
               </DndContext>
             </div>
-          
-            <div className="mobile-rating-box">
-              <div className="flex items-start p-2.5">
-                <div className="flex-shrink-0 mr-2">
-                  <Image src={BobbyIcon} alt="Bobby" width={28} height={28} />
-                </div>
-                <div>
-                  <div className="flex items-center mb-0.5">
-                    <span className="font-medium text-xs">Rating: </span>
-                    <span className="ml-1 text-blue-500 font-medium text-xs">{randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}</span>
+            
+            {/* Fixed bottom controls for mobile */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+              {/* Message/rating box */}
+              <div className="mobile-rating-box mb-4">
+                <div className="mobile-rating-box-inner">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 mr-2">
+                      <Image src={BobbyIcon} alt="Bobby" width={28} height={28} />
+                    </div>
+                    <div>
+                      <div className="flex items-center mb-0.5">
+                        <span className="font-medium text-xs">Rating: </span>
+                        <span className={`ml-1 font-medium text-xs ${getScoreColor(randomScore || 7.2)}`}>
+                          {randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-tight text-gray-700">
+                        {randomColorAdvice || "The colors are generally well-chosen, but one feels slightly off. Try tweaking it for better balance."}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm leading-tight text-gray-700" style={{ fontSize: '14px' }}>
-                    {randomColorAdvice || "The colors are generally well-chosen, but one feels slightly off. Try tweaking it for better balance. Try creating more variety in lightness values for better visual hierarchy."}
-                  </p>
                 </div>
               </div>
-            </div>
-            
-            {/* Action buttons (undo, redo, save, download) */}
-            <div className="mobile-action-buttons">
-              <div className="grid grid-cols-4 gap-2">
-                <button 
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  className={`rounded-full bg-white border border-gray-200 flex items-center justify-center ${!canUndo ? "opacity-50 cursor-not-allowed" : ""}`}
+              
+              {/* Action buttons (undo, redo, save, download) */}
+              <div className="mobile-actions mb-4">
+                <div className="inline-grid grid-cols-4 gap-3">
+                  <button 
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    className={`rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 ${!canUndo ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 14L4 9l5-5"/>
+                      <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    className={`rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 ${!canRedo ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 14l5-5-5-5"/>
+                      <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleSavePalette}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleExportPalette}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mobile-generate-buttons flex justify-between gap-2">
+                <button
+                  onClick={handleAskForAdvice}
+                  className="flex-1 flex items-center justify-center px-3 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 14L4 9l5-5"/>
-                    <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
-                  </svg>
+                  <span className="text-sm font-medium">Ask Bobby</span>
                 </button>
-                <button 
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                  className={`rounded-full bg-white border border-gray-200 flex items-center justify-center ${!canRedo ? "opacity-50 cursor-not-allowed" : ""}`}
+                <button
+                  onClick={handleGenerateRandom}
+                  className="flex-1 flex items-center justify-center px-3 py-2 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 14l5-5-5-5"/>
-                    <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
-                  </svg>
-                </button>
-                <button 
-                  onClick={handleSavePalette}
-                  className="rounded-full bg-white border border-gray-200 flex items-center justify-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                  </svg>
-                </button>
-                <button 
-                  onClick={handleExportPalette}
-                  className="rounded-full bg-white border border-gray-200 flex items-center justify-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
+                  <span className="text-sm font-medium">Generate</span>
                 </button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center flex-1 p-4">
-            <div className="flex items-center justify-center w-16 h-16 mb-3">
-              <Image src={BobbyIcon} alt="Bobby" width={60} height={60} />
+          <>
+            <div className="flex flex-col items-center justify-center px-4 py-8 h-[80vh] w-full">
+              <div className="flex items-center justify-center w-16 h-16 mb-3">
+                <Image src={BobbyIcon} alt="Bobby" width={60} height={60} />
+              </div>
+              <p className="text-center text-gray-500 text-sm mb-4">
+                Press Enter to generate palettes, or click Ask Bobby for advice
+              </p>
             </div>
-            <p className="text-center text-gray-500 text-sm mb-4">
-              Press Enter to generate palettes, or click Ask Bobby for advice
-            </p>
-          </div>
+            
+            {/* Fixed bottom controls for mobile even in empty state */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+              {/* Action buttons (undo, redo, save, download) */}
+              <div className="mobile-actions mb-4">
+                <div className="inline-grid grid-cols-4 gap-3">
+                  <button 
+                    onClick={handleUndo}
+                    disabled={true}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 opacity-50 cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 14L4 9l5-5"/>
+                      <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleRedo}
+                    disabled={true}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 opacity-50 cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 14l5-5-5-5"/>
+                      <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleSavePalette}
+                    disabled={true}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 opacity-50 cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={handleExportPalette}
+                    disabled={true}
+                    className="rounded-full bg-white border border-gray-200 flex items-center justify-center h-10 w-10 opacity-50 cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mobile-generate-buttons flex justify-between gap-2">
+                <button
+                  onClick={handleAskForAdvice}
+                  className="flex-1 flex items-center justify-center px-3 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium">Ask Bobby</span>
+                </button>
+                <button
+                  onClick={handleGenerateRandom}
+                  className="flex-1 flex items-center justify-center px-3 py-2 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+                >
+                  <span className="text-sm font-medium">Generate</span>
+                </button>
+              </div>
+            </div>
+          </>
         )}
-        
-        {/* Bottom buttons */}
-        <div className="mobile-bottom-buttons">
-          <div className="flex gap-2">
-            <button
-              onClick={handleAskForAdvice}
-              className="w-full flex items-center justify-center px-3 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
-            >
-              <span className="text-xs font-medium">Ask Bobby</span>
-            </button>
-            <button
-              onClick={handleGenerateRandom}
-              className="w-full flex items-center justify-center px-3 py-1 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-xs font-medium">Generate</span>
-            </button>
-          </div>
-        </div>
       </div>
       
       {/* Keep all the modals and notifications */}
@@ -1925,8 +1996,8 @@ export default function Home() {
   );
 }
 
-// Mobile Sortable Color Item
-const MobileSortableColorItem = ({
+// Color Item for mobile view
+const ColorItem = ({
   id,
   color,
   index,
@@ -1955,10 +2026,7 @@ const MobileSortableColorItem = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? transition : undefined,
-    backgroundColor: color,
-    position: 'relative' as const,
-    flex: '1 1 0%',
-    touchAction: 'none', // Improve touch handling
+    backgroundColor: color
   };
   
   const isDark = tinycolor(color).isDark();
@@ -1967,20 +2035,17 @@ const MobileSortableColorItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`mobile-color-item ${isDragging ? 'z-10' : 'z-0'}`}
+      className={`color-palette-item ${isDragging ? 'z-10 shadow-lg' : 'z-0'}`}
       {...attributes}
     >
       <div
-        className="flex items-center justify-between w-full h-full"
-        style={{ 
-          boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.15)' : 'none',
-        }}
+        className="flex items-center justify-between w-full h-[64px] px-4"
         onClick={() => onColorClick(color)}
       >
-        <span className="font-mono text-sm ml-4" style={{ color: isDark ? 'white' : 'black' }}>
+        <span className="font-mono text-sm" style={{ color: isDark ? 'white' : 'black' }}>
           {color.toUpperCase()}
         </span>
-        <div className="flex space-x-1 mr-4">
+        <div className="flex space-x-2">
           {/* Edit button */}
           <button
             onClick={(e) => {
@@ -2011,7 +2076,7 @@ const MobileSortableColorItem = ({
             </svg>
           </button>
           
-          {/* Drag handle - Using SVG instead of text character for consistency */}
+          {/* Drag handle */}
           <button
             {...listeners}
             className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
