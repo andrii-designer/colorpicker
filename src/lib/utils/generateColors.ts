@@ -291,46 +291,95 @@ const getShade = (color: string, shade: number): string => {
  * Generate a monochromatic palette from a base color
  */
 const generateMonochromaticPalette = (baseColor: string, count = 5): string[] => {
-  const result = [baseColor];
+  // Support up to 10 colors
   const tc = tinycolorLib(baseColor);
+  const result: string[] = [];
   
-  // Generate darker shades
-  for (let i = 1; i < Math.ceil(count / 2); i++) {
-    const dark = tinycolorLib(baseColor).darken(i * 10);
-    result.unshift(dark.toHexString());
+  // If count is small, create a simple progression
+  if (count <= 5) {
+    // Original behavior
+    result.push(baseColor);
+    result.push(tc.clone().lighten(20).toHexString());
+    result.push(tc.clone().lighten(40).toHexString());
+    result.push(tc.clone().darken(20).toHexString());
+    result.push(tc.clone().darken(40).toHexString());
+    
+    // Return only the requested number
+    return result.slice(0, count);
+  } else {
+    // For more colors, create a more diverse progression with varied saturation
+    const baseHsl = tc.toHsl();
+    
+    // Create a full distribution from dark to light with varied saturation
+    for (let i = 0; i < count; i++) {
+      // Create a more dynamic range of lightness values
+      // Map i from 0...count-1 to a lightness value that creates a nice distribution
+      // We'll use a cosine wave to create a more interesting distribution than linear
+      const position = i / (count - 1); // 0 to 1
+      
+      // Lightness ranges from 15% to 85% in a non-linear distribution
+      const lightness = 15 + 70 * (0.5 - 0.5 * Math.cos(position * Math.PI * 2));
+      
+      // Vary saturation - generally higher for midtones, lower for very light/dark
+      // This follows color theory principles for more natural looking palettes
+      const distFromCenter = Math.abs(lightness - 50) / 35; // 0 at middle, 1 at extremes
+      const saturationFactor = 1 - 0.3 * distFromCenter; // Reduce saturation at extremes
+      
+      const hsl = {
+        h: baseHsl.h,
+        s: Math.min(baseHsl.s * saturationFactor, 1), // Avoid oversaturation
+        l: lightness / 100
+      };
+      
+      result.push(tinycolorLib(hsl).toHexString());
   }
   
-  // Generate lighter tints
-  for (let i = 1; i <= Math.floor(count / 2); i++) {
-    const light = tinycolorLib(baseColor).lighten(i * 10);
-    result.push(light.toHexString());
+    // Randomize the order slightly to avoid too predictable pattern
+    // but keep the base color as the first one
+    const baseColorHex = tc.toHexString();
+    const otherColors = result.filter(color => color !== baseColorHex);
+    // Use Fisher-Yates shuffle for a slight randomization
+    for (let i = otherColors.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [otherColors[i], otherColors[j]] = [otherColors[j], otherColors[i]];
+    }
+    
+    // Put base color first, then the others
+    return [baseColorHex, ...otherColors].slice(0, count);
   }
-  
-  // Return the correct number of colors
-  return result.slice(0, count);
 };
 
 /**
  * Generate a complementary palette
  */
 const generateComplementaryPalette = (baseColor: string, count = 5): string[] => {
-  const result = [baseColor];
+  // Support up to 10 colors with gradual transitions between base and complement
   const tc = tinycolorLib(baseColor);
-  const complement = tc.clone().spin(180).toHexString();
+  const result: string[] = [];
   
-  result.push(complement);
+  // Base color and its complement
+  const color1 = baseColor;
+  const color2 = tc.clone().spin(180).toHexString();
   
-  // Add variations
+  result.push(color1);
+  result.push(color2);
+  
+  // If more colors are needed, add variations of both colors
   if (count > 2) {
-    result.push(tinycolorLib(baseColor).lighten(10).toHexString());
+    // For each additional color needed
+    const remaining = count - 2;
+    
+    // Add variations of the base color
+    for (let i = 0; i < Math.ceil(remaining / 2); i++) {
+      const variation = tinycolorLib(color1).lighten(15 * (i + 1)).toHexString();
+      result.push(variation);
   }
   
-  if (count > 3) {
-    result.push(tinycolorLib(complement).lighten(10).toHexString());
-  }
-  
-  if (count > 4) {
-    result.push(tinycolorLib(baseColor).darken(10).toHexString());
+    // Add variations of the complementary color
+    for (let i = 0; i < Math.floor(remaining / 2); i++) {
+      const variation = tinycolorLib(color2).darken(15 * (i + 1)).toHexString();
+      result.push(variation);
+    }
   }
   
   return result;
@@ -340,30 +389,71 @@ const generateComplementaryPalette = (baseColor: string, count = 5): string[] =>
  * Generate an analogous palette
  */
 const generateAnalogousPalette = (baseColor: string, count = 5): string[] => {
-  const result = [baseColor];
+  // Support up to 10 colors with varying hue steps
   const tc = tinycolorLib(baseColor);
+  const baseHsl = tc.toHsl();
+  const result: string[] = [];
   
-  // Generate colors on both sides of the base color on the color wheel
-  const step = 30;
-  
-  for (let i = 1; i <= Math.floor(count / 2); i++) {
-    const rightColor = tc.clone().spin(step * i).toHexString();
-    result.push(rightColor);
+  // Determine the best strategy based on count
+  if (count <= 5) {
+    // For smaller palettes, traditional analogous with fixed angle steps
+    const angleStep = 30;
+    const angleRange = angleStep * (count - 1);
+    const startAngle = -angleRange / 2;
     
-    if (result.length < count) {
-      const leftColor = tc.clone().spin(-step * i).toHexString();
-      result.unshift(leftColor);
+    // Generate colors with graduated hue steps
+    for (let i = 0; i < count; i++) {
+      const angle = startAngle + (i * angleStep);
+      result.push(tc.clone().spin(angle).toHexString());
+    }
+  } else {
+    // For larger palettes, use golden ratio hue stepping for better distribution
+    // The golden angle is approximately 137.5 degrees
+    const goldenAngle = 137.5;
+    
+    // Start with the base color
+    let hue = baseHsl.h;
+    result.push(tc.toHexString());
+    
+    // For each additional color, step by the golden angle
+    for (let i = 1; i < count; i++) {
+      // Adjust the step size to get more pleasing variation for larger palettes
+      // This creates colors that are related but more distinct
+      const step = goldenAngle * (1 + (i * 0.1)); // Slightly increase step size as we go
+      
+      // Calculate new hue with wrapping around 360
+      hue = (hue + step) % 360;
+      
+      // Vary saturation more dramatically for larger palettes
+      const saturation = Math.min(Math.max(baseHsl.s + (Math.random() * 0.2 - 0.1), 0.3), 0.9);
+      
+      // Vary lightness - darker for some, lighter for others
+      let lightness;
+      if (i % 3 === 0) {
+        // Darker shade
+        lightness = Math.max(baseHsl.l - 0.1 - (Math.random() * 0.1), 0.2);
+      } else if (i % 3 === 1) {
+        // Lighter tint
+        lightness = Math.min(baseHsl.l + 0.1 + (Math.random() * 0.1), 0.8);
+      } else {
+        // Similar lightness with small variation
+        lightness = Math.min(Math.max(baseHsl.l + (Math.random() * 0.16 - 0.08), 0.25), 0.75);
+  }
+  
+      // Create the new color
+      const newColor = tinycolorLib({h: hue, s: saturation, l: lightness});
+      result.push(newColor.toHexString());
     }
   }
   
-  // Return the correct number of colors
-  return result.slice(0, count);
+  return result;
 };
 
 /**
  * Generate a triadic palette
  */
 const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
+  // Support up to 10 colors with variations
   const tc = tinycolorLib(baseColor);
   
   // Create three colors 120 degrees apart
@@ -373,13 +463,37 @@ const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
   
   const result = [color1, color2, color3];
   
-  // Add variations if needed
+  // If more colors needed, add variations of the triadic colors
   if (count > 3) {
-    result.push(tinycolorLib(color1).lighten(10).toHexString());
+    // Add variations between the triadic colors
+    const remaining = count - 3;
+    
+    // For the first set of variations
+    const variations1 = Math.ceil(remaining / 3);
+    for (let i = 0; i < variations1; i++) {
+      const mix = i % 2 === 0 ? 
+        tinycolorLib(color1).lighten(10 + i * 5).toHexString() : 
+        tinycolorLib(color1).darken(10 + i * 5).toHexString();
+      result.push(mix);
   }
   
-  if (count > 4) {
-    result.push(tinycolorLib(color2).lighten(10).toHexString());
+    // For the second set of variations
+    const variations2 = Math.floor(remaining / 3);
+    for (let i = 0; i < variations2; i++) {
+      const mix = i % 2 === 0 ? 
+        tinycolorLib(color2).lighten(10 + i * 5).toHexString() : 
+        tinycolorLib(color2).darken(10 + i * 5).toHexString();
+      result.push(mix);
+    }
+    
+    // For the third set of variations
+    const variations3 = remaining - variations1 - variations2;
+    for (let i = 0; i < variations3; i++) {
+      const mix = i % 2 === 0 ? 
+        tinycolorLib(color3).lighten(10 + i * 5).toHexString() : 
+        tinycolorLib(color3).darken(10 + i * 5).toHexString();
+      result.push(mix);
+    }
   }
   
   return result;
@@ -389,6 +503,7 @@ const generateTriadicPalette = (baseColor: string, count = 5): string[] => {
  * Generate a tetradic palette
  */
 const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
+  // Support up to 10 colors with variations
   const tc = tinycolorLib(baseColor);
   
   // Create four colors 90 degrees apart
@@ -401,7 +516,36 @@ const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
   
   // Add variations if needed
   if (count > 4) {
-    result.push(tinycolorLib(color1).lighten(10).toHexString());
+    // For each additional color needed
+    const remaining = count - 4;
+    
+    // For the first set of variations
+    const variations1 = Math.ceil(remaining / 4);
+    for (let i = 0; i < variations1; i++) {
+      const variation = tinycolorLib(color1).lighten(12 + i * 8).toHexString();
+      result.push(variation);
+    }
+    
+    // For the second set of variations
+    const variations2 = Math.floor((remaining - variations1) / 3);
+    for (let i = 0; i < variations2; i++) {
+      const variation = tinycolorLib(color2).lighten(12 + i * 8).toHexString();
+      result.push(variation);
+    }
+    
+    // For the third set of variations
+    const variations3 = Math.floor((remaining - variations1 - variations2) / 2);
+    for (let i = 0; i < variations3; i++) {
+      const variation = tinycolorLib(color3).darken(12 + i * 8).toHexString();
+      result.push(variation);
+    }
+    
+    // For the fourth set of variations
+    const variations4 = remaining - variations1 - variations2 - variations3;
+    for (let i = 0; i < variations4; i++) {
+      const variation = tinycolorLib(color4).darken(12 + i * 8).toHexString();
+      result.push(variation);
+    }
   }
   
   return result;
@@ -411,6 +555,7 @@ const generateTetradicPalette = (baseColor: string, count = 5): string[] => {
  * Generate a split complementary palette
  */
 const generateSplitComplementaryPalette = (baseColor: string, count = 5): string[] => {
+  // Support up to 10 colors with variations
   const tc = tinycolorLib(baseColor);
   
   // Create a base color and two colors adjacent to its complement
@@ -422,11 +567,35 @@ const generateSplitComplementaryPalette = (baseColor: string, count = 5): string
   
   // Add variations if needed
   if (count > 3) {
-    result.push(tinycolorLib(color1).lighten(10).toHexString());
+    // Calculate how many variations to add for each color
+    const remaining = count - 3;
+    
+    // Base color variations
+    const baseVariations = Math.ceil(remaining / 3);
+    for (let i = 0; i < baseVariations; i++) {
+      const variant = i % 2 === 0 ? 
+        tinycolorLib(color1).lighten(10 + i * 7).toHexString() : 
+        tinycolorLib(color1).darken(10 + i * 7).toHexString();
+      result.push(variant);
   }
   
-  if (count > 4) {
-    result.push(tinycolorLib(color2).lighten(10).toHexString());
+    // First complement variations
+    const firstVariations = Math.floor((remaining - baseVariations) / 2);
+    for (let i = 0; i < firstVariations; i++) {
+      const variant = i % 2 === 0 ? 
+        tinycolorLib(color2).lighten(10 + i * 7).toHexString() : 
+        tinycolorLib(color2).darken(10 + i * 7).toHexString();
+      result.push(variant);
+    }
+    
+    // Second complement variations
+    const secondVariations = remaining - baseVariations - firstVariations;
+    for (let i = 0; i < secondVariations; i++) {
+      const variant = i % 2 === 0 ? 
+        tinycolorLib(color3).lighten(10 + i * 7).toHexString() : 
+        tinycolorLib(color3).darken(10 + i * 7).toHexString();
+      result.push(variant);
+    }
   }
   
   return result;
@@ -532,13 +701,43 @@ export function generateColorPalette(
   }
   
   try {
-    // Generate beautiful palette using our new algorithm
+    // For larger palettes (6+), use our new composite approach if needed
+    if (numColors >= 6 && numColors <= 10) {
+      // Determine which composite type to use based on current palette type and temperature
+      let compositeType = 'composite';
+      if (options.temperature === 'warm') {
+        compositeType = 'warm';
+      } else if (options.temperature === 'cool') {
+        compositeType = 'cool';
+      } else if (paletteType === 'triadic' || paletteType === 'tetradic' || paletteType === 'splitComplementary') {
+        compositeType = 'bold';
+      }
+      
+      // Generate a composite harmony palette
+      const hexColors = generateCompositeHarmony(normalizedColor, numColors, compositeType);
+      
+      // Convert to our format
+      return hexColors.map(hex => {
+        const tc = tinycolorLib(hex);
+        return {
+          hex: hex.toUpperCase(),
+          rgb: tc.toRgb(),
+          hsl: {
+            h: Math.round(tc.toHsl().h),
+            s: Math.round(tc.toHsl().s * 100),
+            l: Math.round(tc.toHsl().l * 100)
+          }
+        };
+      });
+    } else {
+      // For smaller palettes, use the beautiful palette generation with enhanced diversity
     return generateBeautifulPalette(normalizedColor, {
       harmonyType: paletteType,
       count: numColors,
       toneProfile: toneProfile,
       saturationStyle: saturationStyle
     });
+    }
   } catch (error) {
     console.error("Error generating palette:", error);
     
@@ -632,3 +831,188 @@ export function regenerateWithLockedColors(
 ): Color[] {
   return [...currentPalette];
 }
+
+/**
+ * Generate a palette using a combination of harmony strategies for larger palettes
+ * This function creates more diverse palettes for 6+ colors by combining multiple approaches
+ */
+const generateCompositeHarmony = (baseColor: string, count = 8, harmonyType: string = 'composite'): string[] => {
+  const tc = tinycolorLib(baseColor);
+  const baseHsl = tc.toHsl();
+  
+  // Ensure we operate within our limits
+  count = Math.min(Math.max(count, 5), 10);
+  
+  // For larger palettes (6-10), use a completely different approach 
+  // that maximizes color diversity across the color wheel
+  
+  // Create an array to store our final colors
+  const resultColors: string[] = [];
+  
+  // Always start with the base color
+  resultColors.push(tc.toHexString());
+  
+  // For 6+ colors, we need to spread colors across the entire color wheel
+  // to avoid the issue of all colors being too similar
+  if (count >= 6) {
+    // Define fixed positions on the color wheel for maximum diversity
+    // Using a modified approach based on color harmonies
+    
+    // Start with common color harmony angles (in degrees)
+    const primaryAngles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+    
+    // Shuffle array to add randomness while maintaining distribution
+    shuffleArray(primaryAngles);
+    
+    // Get base hue and normalize to 0-360
+    let baseHue = baseHsl.h;
+    if (baseHue < 0) baseHue += 360;
+    
+    // Create diverse colors using strategic positions on the color wheel
+    for (let i = 1; i < count; i++) {
+      // Pick a strategic angle from our shuffled array
+      const angle = primaryAngles[i % primaryAngles.length];
+      
+      // Calculate new hue by adding the angle to the base hue
+      const newHue = (baseHue + angle) % 360;
+      
+      // Create varied saturation
+      // More saturated for primary colors, less for secondary
+      let saturation;
+      if (i <= 3) {
+        // Keep first few colors more saturated for visual impact
+        saturation = Math.min(baseHsl.s * 1.1, 0.9);
+      } else if (i >= count - 2) {
+        // Make last colors less saturated for balance
+        saturation = Math.max(baseHsl.s * 0.8, 0.3);
+      } else {
+        // Middle colors get slight variations
+        saturation = Math.min(Math.max(baseHsl.s * (0.9 + (Math.random() * 0.3 - 0.15)), 0.3), 0.9);
+      }
+      
+      // Create strategic lightness variations based on hue
+      // This ensures proper contrast between colors
+      let lightness;
+      
+      // Decide lightness based on color's position in the wheel relative to base
+      const hueDifference = Math.abs(baseHue - newHue);
+      
+      if (hueDifference < 60) {
+        // Similar hues - create contrast with lightness
+        lightness = baseHsl.l > 0.5 ? 
+          Math.max(baseHsl.l - 0.2 - (Math.random() * 0.1), 0.2) : 
+          Math.min(baseHsl.l + 0.2 + (Math.random() * 0.1), 0.8);
+      } else if (hueDifference > 150) {
+        // Opposite hues - use similar lightness for balance
+        lightness = Math.max(Math.min(baseHsl.l + (Math.random() * 0.2 - 0.1), 0.8), 0.2);
+      } else {
+        // In-between - use larger variations
+        // Use position in sequence to create a zigzag pattern of lightness
+        const zigzag = (i % 2 === 0) ? 0.15 : -0.15;
+        lightness = Math.max(Math.min(baseHsl.l + zigzag + (Math.random() * 0.1 - 0.05), 0.85), 0.15);
+      }
+      
+      // Create the new color
+      const newColor = tinycolorLib({
+        h: newHue,
+        s: saturation,
+        l: lightness
+      });
+      
+      // Add to results
+      resultColors.push(newColor.toHexString());
+    }
+    
+    // Check for and fix any colors that are still too similar
+    return ensurePaletteDistinctiveness(resultColors);
+  }
+  
+  // Fallback for smaller palettes (shouldn't reach here with our implementation)
+  // Just in case, return a simple palette
+  if (resultColors.length < count) {
+    // Fill with default colors based on complement
+    const complement = tc.clone().spin(180);
+    for (let i = resultColors.length; i < count; i++) {
+      resultColors.push(complement.clone().spin(i * 30).toHexString());
+    }
+  }
+  
+  return resultColors;
+};
+
+/**
+ * Helper function to shuffle an array (Fisher-Yates algorithm)
+ */
+function shuffleArray<T>(array: T[]): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+/**
+ * Ensure colors in a palette are sufficiently distinct from each other
+ * This helps prevent the issue of generating multiple similar shades
+ */
+const ensurePaletteDistinctiveness = (colors: string[]): string[] => {
+  if (colors.length <= 5) return colors;
+  
+  // Convert to HSL for easier comparison and manipulation
+  const hslColors = colors.map(c => tinycolorLib(c).toHsl());
+  const result = [colors[0]]; // Always keep the first color
+  
+  // For each color after the first one
+  for (let i = 1; i < colors.length; i++) {
+    const currentHsl = hslColors[i];
+    let needsAdjustment = false;
+    
+    // Check against all previous colors
+    for (let j = 0; j < result.length; j++) {
+      const existingHsl = tinycolorLib(result[j]).toHsl();
+      
+      // Calculate perceptual difference
+      const hueDiff = Math.min(
+        Math.abs(currentHsl.h - existingHsl.h),
+        360 - Math.abs(currentHsl.h - existingHsl.h)
+      );
+      
+      // For colors with similar hue, check saturation and lightness
+      if (hueDiff < 20) {
+        const satDiff = Math.abs(currentHsl.s - existingHsl.s);
+        const lightDiff = Math.abs(currentHsl.l - existingHsl.l);
+        
+        // If too similar in all aspects, mark for adjustment
+        if (satDiff < 0.2 && lightDiff < 0.2) {
+          needsAdjustment = true;
+          break;
+        }
+      }
+    }
+    
+    // If too similar to existing colors, make drastic changes
+    if (needsAdjustment) {
+      // Shift hue significantly (by 60-120 degrees)
+      const shiftAmount = 60 + Math.floor(Math.random() * 60);
+      currentHsl.h = (currentHsl.h + shiftAmount) % 360;
+      
+      // Reverse lightness (dark becomes light, light becomes dark)
+      currentHsl.l = 1 - currentHsl.l;
+      
+      // Update the color in the input array
+      colors[i] = tinycolorLib(currentHsl).toHexString();
+    }
+    
+    // Add to results
+    result.push(colors[i]);
+  }
+  
+  // Final check - sort by hue to create a visually pleasing order
+  const finalHslPairs = result.map((color, index) => ({
+    color,
+    hsl: tinycolorLib(color).toHsl()
+  }));
+  
+  finalHslPairs.sort((a, b) => a.hsl.h - b.hsl.h);
+  
+  return finalHslPairs.map(pair => pair.color);
+};

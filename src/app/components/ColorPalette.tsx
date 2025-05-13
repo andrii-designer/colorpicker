@@ -5,9 +5,12 @@ interface ColorPaletteProps {
   colors: string[]
   onColorClick?: (color: string) => void
   onGenerateNew?: () => void
+  onAddColor?: () => void
+  onRemoveColor?: () => void
+  maxColors?: number
 }
 
-export function ColorPalette({ colors, onColorClick, onGenerateNew }: ColorPaletteProps) {
+export function ColorPalette({ colors, onColorClick, onGenerateNew, onAddColor, onRemoveColor, maxColors = 10 }: ColorPaletteProps) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -29,7 +32,7 @@ export function ColorPalette({ colors, onColorClick, onGenerateNew }: ColorPalet
         ))}
       </div>
       
-      <div className="flex justify-center">
+      <div className="flex justify-between items-center">
         <Button
           variant="default"
           size="lg"
@@ -38,6 +41,29 @@ export function ColorPalette({ colors, onColorClick, onGenerateNew }: ColorPalet
         >
           Generate New Palette
         </Button>
+        
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRemoveColor}
+            disabled={colors.length <= 1}
+            title="Remove color"
+            className="h-10 w-10 rounded-full"
+          >
+            −
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onAddColor}
+            disabled={colors.length >= maxColors}
+            title="Add color"
+            className="h-10 w-10 rounded-full"
+          >
+            +
+          </Button>
+        </div>
       </div>
     </div>
   )
