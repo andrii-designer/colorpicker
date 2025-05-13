@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { migratePalettes, updateLocalStorage } from '../migration-helper';
 import { Logo } from '../components/ui/Logo';
 import { Navigation } from '../components/ui/Navigation';
+import { MobileNavigation } from '../components/ui/MobileNavigation';
 import { toast, Toaster } from 'react-hot-toast';
 import { db } from '../../lib/firebase/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -77,12 +78,15 @@ export default function AdminPage() {
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
       <header className="bg-white py-4 flex-shrink-0">
         <div className="flex items-center justify-between w-full px-4">
-          <div className="w-[200px] flex-shrink-0">
+          <div className="flex-shrink-0">
             <Logo />
           </div>
           
           <div className="flex-shrink-0">
             <Navigation />
+            <div className="md:hidden">
+              <MobileNavigation />
+            </div>
           </div>
         </div>
       </header>
