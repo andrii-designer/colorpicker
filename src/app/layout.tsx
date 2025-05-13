@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
         {/* Script to handle mobile layout better - ultra aggressive approach for deployment environments */}
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -63,6 +63,9 @@ export default function RootLayout({
                   // Force set document level custom property and attributes
                   document.documentElement.style.setProperty('--app-height', \`\${reliableHeight}px\`);
                   
+                  // Create a specific mobile adjustment for safe areas
+                  document.documentElement.style.setProperty('--safe-bottom', \`\${Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0'))}\`);
+                  
                   // Apply height directly to critical elements
                   document.documentElement.style.height = \`\${reliableHeight}px\`;
                   document.body.style.height = \`\${reliableHeight}px\`;
@@ -70,34 +73,16 @@ export default function RootLayout({
                   // Set a data attribute for debugging
                   document.documentElement.setAttribute('data-viewport-height', String(reliableHeight));
                   
-                  // Forcefully prevent scrolling
-                  document.documentElement.style.overflow = 'hidden';
-                  document.body.style.overflow = 'hidden';
-                  document.body.style.position = 'fixed';
-                  document.body.style.top = '0';
-                  document.body.style.left = '0';
-                  document.body.style.right = '0';
-                  document.body.style.bottom = '0';
-                  
-                  // Reset any scroll position
-                  window.scrollTo(0, 0);
-                  
-                  // Ensure hardware acceleration for smoothness
-                  document.body.style.transform = 'translateZ(0)';
-                  document.body.style.webkitTransform = 'translateZ(0)';
-                  document.body.style.backfaceVisibility = 'hidden';
-                  document.body.style.webkitBackfaceVisibility = 'hidden';
-                  document.body.style.perspective = '1000';
-                  document.body.style.webkitPerspective = '1000';
+                  // Reset any scroll position for iOS
+                  if (isIOS) {
+                    window.scrollTo(0, 0);
+                  }
                   
                   // Update all mobile container elements that might rely on height
-                  const containers = document.querySelectorAll('.mobile-palette-container');
+                  const containers = document.querySelectorAll('.flex-1');
                   containers.forEach(container => {
                     if (container instanceof HTMLElement) {
-                      // Calculate app content height (subtracting the header)
-                      const headerHeight = 60; // Must match the CSS variable
-                      const contentHeight = reliableHeight - headerHeight;
-                      container.style.height = \`\${contentHeight}px\`;
+                      void container.offsetHeight;
                     }
                   });
                   
@@ -126,7 +111,6 @@ export default function RootLayout({
                   
                   // Delayed fix for any animations to complete
                   setTimeout(fixViewportHeight, 100);
-                  setTimeout(fixViewportHeight, 300);
                 }, { passive: true });
               });
               
@@ -140,7 +124,7 @@ export default function RootLayout({
                 // Track scroll for iOS toolbar show/hide
                 let lastScrollY = window.scrollY;
                 window.addEventListener('scroll', () => {
-                  if (Math.abs(window.scrollY - lastScrollY) > 50) {
+                  if (Math.abs(window.scrollY - lastScrollY) > 20) {
                     lastScrollY = window.scrollY;
                     fixViewportHeight();
                   }
@@ -150,9 +134,6 @@ export default function RootLayout({
               // Also track focus events for keyboard
               window.addEventListener('focusin', () => setTimeout(fixViewportHeight, 200), { passive: true });
               window.addEventListener('focusout', () => setTimeout(fixViewportHeight, 200), { passive: true });
-              
-              // Run periodically to ensure it stays correct
-              setInterval(fixViewportHeight, 2000);
               
               // For debugging - expose to global
               window.__fixViewportHeight = fixViewportHeight;

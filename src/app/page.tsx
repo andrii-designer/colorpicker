@@ -1837,10 +1837,11 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="md:hidden color-palette-container flex flex-col h-[calc(100vh-68px)]">
+      <div className="md:hidden flex flex-col h-[calc(100vh-68px)] pb-safe">
         {randomColors.length > 0 ? (
           <div className="flex flex-col h-full">
-            <div className="mobile-palette-wrapper flex-grow overflow-hidden"> 
+            {/* This wrapper ensures the palette takes up all available space but doesn't overlap controls */}
+            <div className="flex-1 flex flex-col overflow-hidden"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1853,7 +1854,7 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="flex flex-col w-full h-full">
+                  <div className="flex flex-col h-full">
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
@@ -1875,8 +1876,8 @@ export default function Home() {
               </DndContext>
             </div>
             
-            {/* Bottom controls for mobile - now directly adjacent to the palette */}
-            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+            {/* Bottom controls for mobile - fixed to bottom of viewport with sticky positioning */}
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 sticky bottom-0 left-0 right-0">
               {/* Message/rating box */}
               <div className="mobile-rating-box mb-4">
                 <div className="mobile-rating-box-inner">
@@ -1970,8 +1971,8 @@ export default function Home() {
               </p>
             </div>
             
-            {/* Bottom controls for mobile even in empty state - now directly adjacent */}
-            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+            {/* Bottom controls for mobile even in empty state - fixed to bottom */}
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 sticky bottom-0 left-0 right-0">
               {/* Action buttons (undo, redo, save, download) */}
               <div className="mobile-actions mb-4">
                 <div className="flex justify-between w-full">
@@ -2083,8 +2084,7 @@ const ColorItem = ({
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? transition : undefined,
     backgroundColor: color,
-    height: `${100 / 5}%`, // Divide available height by number of colors (5)
-    minHeight: '75px' // Minimum height for very tall screens
+    flex: 1
   };
   
   const isDark = tinycolor(color).isDark();
@@ -2093,11 +2093,11 @@ const ColorItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`color-palette-item flex-grow ${isDragging ? 'z-10 shadow-lg' : 'z-0'}`}
+      className={`color-palette-item ${isDragging ? 'z-10 shadow-lg' : 'z-0'}`}
       {...attributes}
     >
       <div
-        className="flex items-center justify-between w-full h-full px-4"
+        className="flex items-center justify-between w-full h-full px-4 py-4"
         onClick={() => onColorClick(color)}
       >
         <span className="font-mono text-sm" style={{ color: isDark ? 'white' : 'black' }}>
@@ -2110,7 +2110,7 @@ const ColorItem = ({
               e.stopPropagation();
               onEditClick(color, index, e as React.MouseEvent);
             }}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
             style={{ color: isDark ? 'white' : 'black' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2125,7 +2125,7 @@ const ColorItem = ({
               navigator.clipboard.writeText(color);
               toast.success(`Copied ${color.toUpperCase()} to clipboard`);
             }}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
             style={{ color: isDark ? 'white' : 'black' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2137,7 +2137,7 @@ const ColorItem = ({
           {/* Drag handle */}
           <button
             {...listeners}
-            className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             title="Drag to reorder"
             style={{ color: isDark ? 'white' : 'black' }}
           >
