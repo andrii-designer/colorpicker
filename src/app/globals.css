@@ -5,11 +5,14 @@
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-rgb: 255, 255, 255;
+  --app-height: 100vh; /* Dynamic height for mobile viewports */
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
+  min-height: var(--app-height);
+  overflow: hidden;
 }
 
 @layer utilities {

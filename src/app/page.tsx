@@ -1781,10 +1781,10 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="flex flex-col md:hidden h-screen overflow-hidden">
+      <div className="flex flex-col md:hidden h-screen overflow-hidden" style={{ height: 'var(--app-height)' }}>
         {randomColors.length > 0 ? (
           <>
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col"> 
+            <div className="flex-1 flex flex-col overflow-hidden"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1797,10 +1797,7 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="grid auto-rows-fr w-full" style={{ 
-                    height: 'calc(100vh - 280px)',
-                    gridTemplateRows: `repeat(${randomColors.length}, 1fr)`
-                  }}>
+                  <div className="flex flex-col flex-1 w-full">
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
@@ -1822,7 +1819,7 @@ export default function Home() {
               </DndContext>
             </div>
           
-            <div className="mx-3 mt-4 mb-3 rounded-lg bg-gray-100" style={{ maxHeight: '18vh', overflow: 'auto', padding: 0 }}>
+            <div className="mx-3 mt-4 mb-3 rounded-lg bg-gray-100 flex-shrink-0" style={{ maxHeight: '18vh', overflow: 'auto', padding: 0 }}>
               <div className="flex items-start p-2.5">
                 <div className="flex-shrink-0 mr-2">
                   <Image src={BobbyIcon} alt="Bobby" width={28} height={28} />
@@ -1832,7 +1829,7 @@ export default function Home() {
                     <span className="font-medium text-xs">Rating: </span>
                     <span className="ml-1 text-blue-500 font-medium text-xs">{randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}</span>
                   </div>
-                  <p className="text-xs text-gray-700 leading-tight">
+                  <p className="text-sm leading-tight text-gray-700" style={{ fontSize: '14px' }}>
                     {randomColorAdvice || "The colors are generally well-chosen, but one feels slightly off. Try tweaking it for better balance. Try creating more variety in lightness values for better visual hierarchy."}
                   </p>
                 </div>
@@ -1840,7 +1837,7 @@ export default function Home() {
             </div>
             
             {/* Icon buttons moved from top to bottom */}
-            <div className="flex items-center justify-between mx-3 my-2">
+            <div className="flex items-center justify-between mx-3 my-2 flex-shrink-0">
               <button 
                 onClick={handleUndo}
                 disabled={!canUndo}
@@ -1893,17 +1890,17 @@ export default function Home() {
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-3 py-1 mt-0 mb-4 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0.25rem)' }}>
+        <div className="px-3 py-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0.25rem)' }}>
           <div className="flex gap-2">
             <button
               onClick={handleAskForAdvice}
-              className="w-full flex items-center justify-center px-3 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-center px-3 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
             >
               <span className="text-xs font-medium">Ask Bobby</span>
             </button>
             <button
               onClick={handleGenerateRandom}
-              className="w-full flex items-center justify-center px-3 py-1.5 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+              className="w-full flex items-center justify-center px-3 py-1 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
             >
               <span className="text-xs font-medium">Generate</span>
             </button>
@@ -1966,9 +1963,8 @@ const MobileSortableColorItem = ({
       ref={setNodeRef}
       style={{
         ...style,
-        height: '100%',
       }}
-      className={`w-full ${isDragging ? 'z-10' : 'z-0'}`}
+      className={`w-full flex-1 ${isDragging ? 'z-10' : 'z-0'}`}
       {...attributes}
     >
       <div
@@ -1979,17 +1975,17 @@ const MobileSortableColorItem = ({
         }}
         onClick={() => onColorClick(color)}
       >
-        <span className="font-mono text-base ml-4" style={{ color: isDark ? 'white' : 'black' }}>
+        <span className="font-mono text-sm ml-4" style={{ color: isDark ? 'white' : 'black' }}>
           {color.toUpperCase()}
         </span>
-        <div className="flex space-x-2 mr-4">
+        <div className="flex space-x-1 mr-4">
           {/* Edit button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEditClick(color, index, e as React.MouseEvent);
             }}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
             style={{ color: isDark ? 'white' : 'black' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2004,7 +2000,7 @@ const MobileSortableColorItem = ({
               navigator.clipboard.writeText(color);
               toast.success(`Copied ${color.toUpperCase()} to clipboard`);
             }}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
             style={{ color: isDark ? 'white' : 'black' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2016,7 +2012,7 @@ const MobileSortableColorItem = ({
           {/* Drag handle - Using SVG instead of text character for consistency */}
           <button
             {...listeners}
-            className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             title="Drag to reorder"
             style={{ color: isDark ? 'white' : 'black' }}
           >
