@@ -1877,7 +1877,7 @@ export default function Home() {
             </div>
             
             {/* Bottom controls for mobile - fixed to bottom of viewport with sticky positioning */}
-            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 sticky bottom-0 left-0 right-0">
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50">
               {/* Message/rating box */}
               <div className="mobile-rating-box mb-4">
                 <div className="mobile-rating-box-inner">
@@ -1972,7 +1972,7 @@ export default function Home() {
             </div>
             
             {/* Bottom controls for mobile even in empty state - fixed to bottom */}
-            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 sticky bottom-0 left-0 right-0">
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50">
               {/* Action buttons (undo, redo, save, download) */}
               <div className="mobile-actions mb-4">
                 <div className="flex justify-between w-full">
