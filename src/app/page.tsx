@@ -27,7 +27,7 @@ import Image from 'next/image';
 import BobbyIcon from './assets/bobby.svg';
 import ColorControls from './components/ui/ColorControls';
 import { addDocument } from '../lib/firebase/firebaseUtils';
-import { MobileNavigation } from './components/ui/MobileNavigation';
+import { MobileNavigation } from '../components/ui/MobileNavigation';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -1682,10 +1682,10 @@ export default function Home() {
         <button
           onClick={handleUndo}
           disabled={!canUndo}
-          className={`w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          className={`w-[32px] h-[32px] flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canUndo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           title="Undo"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 14L4 9l5-5"/>
             <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
           </svg>
@@ -1694,10 +1694,10 @@ export default function Home() {
         <button
           onClick={handleRedo}
           disabled={!canRedo}
-          className={`w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          className={`w-[32px] h-[32px] flex items-center justify-center rounded-full border border-[#E5E5E5] ${!canRedo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           title="Redo"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 14l5-5-5-5"/>
             <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
           </svg>
@@ -1705,20 +1705,20 @@ export default function Home() {
         
         <button
           onClick={handleSavePalette}
-          className="w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5]"
+          className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-[#E5E5E5]"
           title="Save palette"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
         </button>
         
         <button
           onClick={handleExportPalette}
-          className="w-14 h-14 flex items-center justify-center rounded-full border border-[#E5E5E5]"
+          className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-[#E5E5E5]"
           title="Export palette as image"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -1779,10 +1779,10 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="flex flex-col md:hidden h-screen">
+      <div className="flex flex-col md:hidden h-screen overflow-hidden">
         {randomColors.length > 0 ? (
           <>
-            <div className="flex-1 min-h-0"> 
+            <div className="flex-1 min-h-0 overflow-hidden"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1817,7 +1817,7 @@ export default function Home() {
               </DndContext>
             </div>
           
-            <div className="mt-4 mx-4 rounded-xl bg-gray-100 p-4">
+            <div className="mx-4 mt-4 rounded-xl bg-gray-100 p-4">
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-3">
                   <Image src={BobbyIcon} alt="Bobby" width={48} height={48} />
@@ -1846,7 +1846,7 @@ export default function Home() {
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-4 pb-6 mt-4">
+        <div className="px-4 pb-8 pt-2 mt-auto sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0.5rem))' }}>
           <div className="flex flex-col gap-3">
             <button
               onClick={handleAskForAdvice}
@@ -1909,6 +1909,7 @@ const MobileSortableColorItem = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? transition : undefined,
+    touchAction: 'none', // Improve touch handling
   };
   
   const isDark = tinycolor(color).isDark();
@@ -1965,14 +1966,18 @@ const MobileSortableColorItem = ({
             </svg>
           </button>
           
-          {/* Drag handle */}
+          {/* Drag handle - Using SVG instead of text character for consistency */}
           <button
             {...listeners}
             className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             title="Drag to reorder"
             style={{ color: isDark ? 'white' : 'black' }}
           >
-            <span className="text-xs font-bold">↕</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="8" y1="6" x2="16" y2="6"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+              <line x1="8" y1="18" x2="16" y2="18"></line>
+            </svg>
           </button>
         </div>
       </div>
