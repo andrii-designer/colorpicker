@@ -138,6 +138,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
       <div className="absolute left-0 right-0 bottom-0 h-[64px] pt-4 px-4" style={{ border: 'none', background: 'transparent' }}>
         <button
           onClick={handleAskBobbyClick}
+          data-ask-bobby
           className="w-full h-[48px] rounded-[999px] bg-black flex items-center justify-center"
           style={{ 
             fontFamily: 'Inter', 
