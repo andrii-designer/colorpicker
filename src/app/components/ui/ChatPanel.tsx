@@ -17,9 +17,11 @@ interface ChatPanelProps {
   onGeneratePalette?: () => void
   onUndo?: () => void
   onRedo?: () => void
+  resetClickState?: boolean
+  onResetHandled?: () => void
 }
 
-export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo }: ChatPanelProps) {
+export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalette, onUndo, onRedo, resetClickState, onResetHandled }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasClickedAskBobby, setHasClickedAskBobby] = useState(false);
   
@@ -29,6 +31,28 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+  
+  // Reset hasClickedAskBobby when messages are reset to just the initial message
+  // This happens when a new palette is generated
+  useEffect(() => {
+    if (messages.length === 1) {
+      setHasClickedAskBobby(false);
+    }
+  }, [messages.length]);
+  
+  // Reset state when resetClickState changes
+  useEffect(() => {
+    // Only reset hasClickedAskBobby when explicit true is passed
+    // This prevents re-renders from boolean toggles
+    if (resetClickState === true) {
+      setHasClickedAskBobby(false);
+      
+      // Call the callback to reset the flag in the parent component
+      if (onResetHandled) {
+        onResetHandled();
+      }
+    }
+  }, [resetClickState, onResetHandled]);
   
   // Handle click on Ask Bobby button
   const handleAskBobbyClick = () => {
@@ -54,7 +78,7 @@ export function ChatPanel({ className, messages, onAskForAdvice, onGeneratePalet
             scrollbarColor: '#E0E0E0 transparent'
           }}
         >
-          {messages.length > 0 && hasClickedAskBobby ? (
+          {messages.length > 1 || (messages.length === 1 && hasClickedAskBobby) ? (
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div

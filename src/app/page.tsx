@@ -28,6 +28,7 @@ import BobbyIcon from './assets/bobby.svg';
 import ColorControls from './components/ui/ColorControls';
 import { addDocument } from '../lib/firebase/firebaseUtils';
 import { MobileNavigation } from './components/ui/MobileNavigation';
+import { usePathname } from 'next/navigation';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -723,8 +724,19 @@ export default function Home() {
   const [showAdviceChat, setShowAdviceChat] = useState<boolean>(true);
   const [adviceMessages, setAdviceMessages] = useState<AdviceMessage[]>([]);
   
+  // Get the current path of active code
+  const currentPath = usePathname();
+  
   // Add a flag to track if advice has been given for the current palette
   const [adviceGivenForCurrentPalette, setAdviceGivenForCurrentPalette] = useState<boolean>(false);
+  
+  // Add a flag to track when to reset the ChatPanel's click state
+  const [resetChatPanelState, setResetChatPanelState] = useState<boolean>(false);
+  
+  // Handler to reset the resetChatPanelState flag
+  const handleResetHandled = useCallback(() => {
+    setResetChatPanelState(false);
+  }, []);
   
   // State for drag and drop
   const [colorIds, setColorIds] = useState<string[]>([]);
@@ -837,6 +849,9 @@ export default function Home() {
     // Mark initialization as complete
     hasInitializedRef.current = true;
     
+    // Ensure adviceGivenForCurrentPalette is false for the initial palette
+    setAdviceGivenForCurrentPalette(false);
+    
     console.log("Initial palette generated and history initialized");
     
     return () => {
@@ -897,6 +912,32 @@ export default function Home() {
         };
         
         console.log(`Enter key: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
+        
+        // Desktop behavior: Keep chat history unless it's just the welcome message
+        // Mobile behavior: Always reset to initial message
+        
+        // Check if we're on mobile
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+        
+        // Check if we only have the welcome message or no advice messages yet
+        const hasOnlyWelcomeMessage = adviceMessages.length <= 1 && !adviceGivenForCurrentPalette;
+        
+        // On mobile or if we only have welcome message, reset to initial
+        if (isMobile || hasOnlyWelcomeMessage) {
+          setAdviceMessages([
+            {
+              id: '1',
+              text: 'Press Enter to generate palettes, or click Ask Bobby for advice',
+              icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+            }
+          ]);
+        }
+        
+        // Reset the advice flag when a new palette is generated
+        setAdviceGivenForCurrentPalette(false);
+        
+        // Toggle the reset chat panel state to force it to reset
+        setResetChatPanelState(true);
       }
     };
     
@@ -904,299 +945,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('keypress', handleKeyPress);
     };
-  }, [paletteHistory, historyIndex]);
-  
-  // Function to generate random palette (button click)
-  function handleGenerateRandom() {
-    try {
-      // Select a random harmony type for variety
-      const harmonyTypes: HarmonyType[] = [
-        'analogous', 'monochromatic', 'triad', 'complementary', 
-        'splitComplementary', 'tetrad', 'square'
-      ];
-      const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
-      
-      // NEW: Add variety to base color generation with different methods
-      const colorMethods = [
-        'full-random',     // Completely random (35% chance)
-        'hue-based',       // Based on random hue with controlled S/L (30% chance)
-        'weighted-hues',   // Use weighted hue ranges for more appealing colors (25% chance)
-        'color-theory'     // Use color theory principles (10% chance)
-      ];
-      
-      const methodChoice = Math.random();
-      let baseColor: string;
-      
-      if (methodChoice < 0.35) {
-        // Full random - RGB based (Most random)
-        const r = Math.floor(Math.random() * 256);
-        const g = Math.floor(Math.random() * 256);
-        const b = Math.floor(Math.random() * 256);
-        baseColor = tinycolor(`rgb(${r}, ${g}, ${b})`).toHexString();
-      } 
-      else if (methodChoice < 0.65) {
-        // Hue based with controlled saturation and lightness
-        const randomHue = Math.floor(Math.random() * 360);
-        // More variety in saturation and lightness
-        const randomSat = 30 + Math.floor(Math.random() * 70); // 30-100% saturation
-        const randomLit = 25 + Math.floor(Math.random() * 50); // 25-75% lightness
-        baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
-      }
-      else if (methodChoice < 0.90) {
-        // Weighted hue ranges - favor more naturally attractive hues
-        // These ranges correspond to blues, greens, warm colors, etc.
-        const hueRanges = [
-          { min: 190, max: 240, weight: 0.25 }, // Blues
-          { min: 90, max: 150, weight: 0.2 },  // Greens
-          { min: 0, max: 30, weight: 0.2 },    // Reds
-          { min: 30, max: 60, weight: 0.15 },  // Oranges/Yellows
-          { min: 270, max: 330, weight: 0.2 }  // Purples/Magentas
-        ];
-        
-        // Choose a hue range based on weights
-        const rangeRandom = Math.random();
-        let cumulativeWeight = 0;
-        let selectedRange = hueRanges[0];
-        
-        for (const range of hueRanges) {
-          cumulativeWeight += range.weight;
-          if (rangeRandom <= cumulativeWeight) {
-            selectedRange = range;
-            break;
-          }
-        }
-        
-        // Generate a random hue within the selected range
-        const hue = selectedRange.min + Math.floor(Math.random() * (selectedRange.max - selectedRange.min));
-        const sat = 35 + Math.floor(Math.random() * 65); // 35-100% saturation
-        const lit = 30 + Math.floor(Math.random() * 40); // 30-70% lightness
-        
-        baseColor = tinycolor(`hsl(${hue}, ${sat}%, ${lit}%)`).toHexString();
-      }
-      else {
-        // Color theory based - use golden ratio for hue selection
-        // Start with a random hue
-        const startHue = Math.floor(Math.random() * 360);
-        
-        // Create a hue using the golden ratio (phi ≈ 0.618033988749895)
-        // This produces aesthetically pleasing hue relationships
-        const phi = 0.618033988749895;
-        const hue = Math.floor((startHue + (360 * phi)) % 360);
-        
-        // Use more saturated, moderate lightness values for vibrant base colors
-        const sat = 60 + Math.floor(Math.random() * 40); // 60-100%
-        const lit = 45 + Math.floor(Math.random() * 15); // 45-60%
-        
-        baseColor = tinycolor(`hsl(${hue}, ${sat}%, ${lit}%)`).toHexString();
-      }
-      
-      // Use random saturation style and tone profile for more variety
-      const satStyles = ['muted', 'balanced', 'vibrant'];
-      const toneProfiles = ['light', 'balanced', 'dark'];
-      const randomSatStyle = satStyles[Math.floor(Math.random() * satStyles.length)];
-      const randomToneProfile = toneProfiles[Math.floor(Math.random() * toneProfiles.length)];
-      
-      // Generate new random colors using the beautiful palette generator with full configuration
-      const newColors = generateBeautifulPalette(baseColor, {
-        harmonyType: randomType,
-        count: 5,
-        toneProfile: randomToneProfile as any,
-        saturationStyle: randomSatStyle as any
-      }).map(color => color.hex);
-      
-      // Analyze the new colors
-      const analysis = analyzeColorPalette(newColors);
-      
-      // Add to history
-      const newHistory = paletteHistory.slice(0, historyIndex + 1);
-      newHistory.push(newColors);
-      setPaletteHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-      
-      // Update UI with new colors
-      setRandomColors(newColors);
-      
-      // Save the analysis for later use
-      (window as any).__latestAnalysis = {
-        advice: analysis.advice,
-        score: analysis.score
-      };
-      
-      console.log(`Button: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
-      
-      // Reset the advice flag when a new palette is generated
-      setAdviceGivenForCurrentPalette(false);
-    } catch (error) {
-      console.error("Error generating random palette:", error);
-      toast.error("Failed to generate palette, trying alternative method...");
-      
-      // Fallback to simpler configuration if the advanced one fails
-      try {
-        // Use a simple blue base color with default settings
-        const fallbackColors = generateBeautifulPalette('#3366FF', {
-          harmonyType: 'analogous',
-          count: 5,
-          saturationStyle: 'balanced',
-          toneProfile: 'balanced'
-        }).map(color => color.hex);
-        
-        setRandomColors(fallbackColors);
-        const newHistory = paletteHistory.slice(0, historyIndex + 1);
-        newHistory.push(fallbackColors);
-        setPaletteHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-      } catch (fallbackError) {
-        console.error("Fallback generation also failed:", fallbackError);
-        toast.error("All palette generation methods failed");
-      }
-    }
-  }
-  
-  // Function to generate palette with specific harmony type
-  function handleGenerateWithHarmony(harmonyType: HarmonyType) {
-    try {
-      // Generate a random base color
-      const randomHue = Math.floor(Math.random() * 360);
-      const randomSat = 65 + Math.floor(Math.random() * 25); // 65-90% saturation
-      const randomLit = 45 + Math.floor(Math.random() * 15); // 45-60% lightness
-      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
-      
-      // Generate new colors with the selected harmony type using the beautiful palette generator
-      const newColors = generateBeautifulPalette(baseColor, {
-        harmonyType: harmonyType,
-        count: 5,
-        toneProfile: 'balanced',
-        saturationStyle: 'balanced'
-      }).map(color => color.hex);
-      
-      // Analyze the new colors
-      const analysis = analyzeColorPalette(newColors);
-      
-      // Add to history
-      const newHistory = paletteHistory.slice(0, historyIndex + 1);
-      newHistory.push(newColors);
-      setPaletteHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-      
-      // Update UI with new colors
-      setRandomColors(newColors);
-      
-      // Save the analysis for later use
-      (window as any).__latestAnalysis = {
-        advice: analysis.advice,
-        score: analysis.score
-      };
-      
-      console.log(`Generated ${harmonyType} palette, now at history position ${newHistory.length - 1}`);
-      
-      // Close the harmony options dropdown
-      setShowHarmonyOptions(false);
-      
-      // Reset the advice flag when a new palette is generated
-      setAdviceGivenForCurrentPalette(false);
-    } catch (error) {
-      console.error(`Error generating ${harmonyType} palette:`, error);
-      toast.error(`Failed to generate ${harmonyType} palette`);
-    }
-  }
-  
-  // Add a new advice message only when explicitly requested through the Ask for Advice button
-  // instead of whenever randomColorAdvice changes
-  const handleAskForAdvice = () => {
-    // Get all buttons to find the Ask Bobby button
-    const buttons = document.querySelectorAll('button');
-    let askBobbyButton: HTMLButtonElement | null = null;
-    
-    for (let i = 0; i < buttons.length; i++) {
-      if (buttons[i].textContent?.includes('Ask Bobby')) {
-        askBobbyButton = buttons[i] as HTMLButtonElement;
-        break;
-      }
-    }
-    
-    // Disable button if found
-    if (askBobbyButton) askBobbyButton.disabled = true;
-    
-    // If advice has already been given for the current palette, don't generate new advice
-    if (adviceGivenForCurrentPalette) {
-      toast("Bobby has already analyzed this palette. Generate a new palette for more feedback.", {
-        duration: 3000,
-        icon: '📝',
-        style: {
-          background: '#f0f9ff',
-          color: '#0c4a6e',
-          border: '1px solid #bae6fd'
-        }
-      });
-      
-      // Re-enable button after a short delay
-      setTimeout(() => {
-        if (askBobbyButton) {
-          askBobbyButton.disabled = false;
-        }
-      }, 500);
-      
-      return;
-    }
-    
-    // Use a timeout to ensure state updates don't cause layout shifts
-    setTimeout(() => {
-      try {
-        if ((window as any).__latestAnalysis) {
-          // Get the advice and score
-          const advice = (window as any).__latestAnalysis.advice;
-          const score = (window as any).__latestAnalysis.score;
-          
-          // Update state in a batched update to prevent multiple renders
-          setRandomColorAdvice(advice);
-          setRandomScore(score);
-          
-          // Create and add the new message
-          const newMessage: AdviceMessage = {
-            id: Date.now().toString(),
-            text: advice,
-            score: score,
-            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
-          };
-          
-          setAdviceMessages(prev => [...prev, newMessage]);
-          
-          // Clear stored analysis after using it
-          (window as any).__latestAnalysis = null;
-          
-          // Set the flag that advice has been given for this palette
-          setAdviceGivenForCurrentPalette(true);
-        } else {
-          // If no stored analysis, generate one now
-          const analysis = analyzeColorPalette(randomColors);
-          
-          // Update state in a batched update
-          setRandomColorAdvice(analysis.advice);
-          setRandomScore(analysis.score);
-          
-          // Create and add the new message
-          const newMessage: AdviceMessage = {
-            id: Date.now().toString(),
-            text: analysis.advice,
-            score: analysis.score,
-            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
-          };
-          
-          setAdviceMessages(prev => [...prev, newMessage]);
-          
-          // Set the flag that advice has been given for this palette
-          setAdviceGivenForCurrentPalette(true);
-        }
-      } finally {
-        // Re-enable button after a short delay
-        setTimeout(() => {
-          if (askBobbyButton) {
-            askBobbyButton.disabled = false;
-          }
-        }, 500);
-      }
-    }, 0);
-  };
+  }, [paletteHistory, historyIndex, setPaletteHistory, setHistoryIndex, setRandomColors, setAdviceMessages, setAdviceGivenForCurrentPalette, setResetChatPanelState, adviceMessages, adviceGivenForCurrentPalette]);
   
   // Function to handle color click - copy to clipboard
   const handleColorClick = (color: string) => {
@@ -1265,6 +1014,9 @@ export default function Home() {
         
         // Reset the advice flag when a color is changed
         setAdviceGivenForCurrentPalette(false);
+        
+        // Toggle the reset chat panel state to force it to reset
+        setResetChatPanelState(true);
       }
     }
     
@@ -1289,8 +1041,65 @@ export default function Home() {
     }
   };
   
+  // Function to handle asking for advice from Bobby
+  const handleAskForAdvice = useCallback(() => {
+    // Use a timeout to ensure state updates don't cause layout shifts
+    setTimeout(() => {
+      try {
+        // Ensure there's at least the initial message in the array
+        if (adviceMessages.length === 0) {
+          setAdviceMessages([
+            {
+              id: '1',
+              text: 'Press Enter to generate palettes, or click Ask Bobby for advice',
+              icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+            }
+          ]);
+        }
+        
+        if ((window as any).__latestAnalysis) {
+          // Get the advice and score
+          const advice = (window as any).__latestAnalysis.advice;
+          const score = (window as any).__latestAnalysis.score;
+          
+          // Only show advice if we haven't already shown it for this palette
+          if (!adviceGivenForCurrentPalette) {
+            // Create and add the new message
+            const newMessage: AdviceMessage = {
+              id: Date.now().toString(),
+              text: advice,
+              score: score,
+              icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+            };
+            
+            // Always append to existing messages
+            setAdviceMessages(prev => [...prev, newMessage]);
+            
+            // Clear stored analysis after using it
+            (window as any).__latestAnalysis = null;
+            
+            // Also update the UI indicators
+            setRandomColorAdvice(advice);
+            setRandomScore(score);
+            
+            // Set the flag that advice has been given for this palette
+            setAdviceGivenForCurrentPalette(true);
+          }
+        }
+      } finally {
+        // Re-enable button after a short delay
+        setTimeout(() => {
+          const askBobbyButton = document.querySelector('[data-ask-bobby]');
+          if (askBobbyButton) {
+            askBobbyButton.removeAttribute('disabled');
+          }
+        }, 500);
+      }
+    }, 0);
+  }, [adviceMessages, adviceGivenForCurrentPalette, setAdviceMessages, setRandomColorAdvice, setRandomScore, setAdviceGivenForCurrentPalette]);
+  
   // Handle drag end for reordering colors
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
@@ -1319,15 +1128,37 @@ export default function Home() {
         
         // Reset the advice flag when colors are rearranged
         setAdviceGivenForCurrentPalette(false);
+        
+        // Toggle the reset chat panel state to force it to reset
+        setResetChatPanelState(true);
       }
     }
     
     // Immediately reset state
     setActiveId(null);
     setOverIndex(null);
-  };
+  }, [colorIds, randomColors, paletteHistory, historyIndex, setPaletteHistory, setHistoryIndex, setRandomColors, setAdviceGivenForCurrentPalette, setResetChatPanelState, setActiveId, setOverIndex]);
   
-  const handleUndo = () => {
+  // Helper function to add Bobby messages for undo/redo actions on mobile
+  const addBobbyUndoRedoMessage = useCallback((action: 'undo' | 'redo', analysis: { advice: string, score: number }) => {
+    const actionText = action === 'undo' ? 'restored previous' : 'restored next';
+    
+    const newMessage: AdviceMessage = {
+      id: Date.now().toString(),
+      text: `I've ${actionText} palette for you. ${analysis.advice}`,
+      score: analysis.score,
+      icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+    };
+    
+    // Add the message to the chat panel
+    setAdviceMessages(prev => [...prev, newMessage]);
+    
+    // Also update the current advice and score in the UI
+    setRandomColorAdvice(analysis.advice);
+    setRandomScore(analysis.score);
+  }, [setAdviceMessages, setRandomColorAdvice, setRandomScore]);
+
+  const handleUndo = useCallback(() => {
     if (canUndo) {
       // Use the previous state from history
       const prevColors = paletteHistory[historyIndex - 1];
@@ -1341,12 +1172,20 @@ export default function Home() {
         score: analysis.score
       };
       
+      // Add a message from Bobby on mobile devices
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        addBobbyUndoRedoMessage('undo', analysis);
+      }
+      
       // Reset the advice flag when undoing
       setAdviceGivenForCurrentPalette(false);
+      
+      // Toggle the reset chat panel state to force it to reset
+      setResetChatPanelState(true);
     }
-  };
+  }, [canUndo, paletteHistory, historyIndex, setRandomColors, setHistoryIndex, addBobbyUndoRedoMessage, setAdviceGivenForCurrentPalette, setResetChatPanelState]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (canRedo) {
       // Use the next state from history
       const nextColors = paletteHistory[historyIndex + 1];
@@ -1360,12 +1199,20 @@ export default function Home() {
         score: analysis.score
       };
       
+      // Add a message from Bobby on mobile devices
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        addBobbyUndoRedoMessage('redo', analysis);
+      }
+      
       // Reset the advice flag when redoing
       setAdviceGivenForCurrentPalette(false);
+      
+      // Toggle the reset chat panel state to force it to reset
+      setResetChatPanelState(true);
     }
-  };
+  }, [canRedo, paletteHistory, historyIndex, setRandomColors, setHistoryIndex, addBobbyUndoRedoMessage, setAdviceGivenForCurrentPalette, setResetChatPanelState]);
   
-  const handleExportPalette = () => {
+  const handleExportPalette = useCallback(() => {
     // Create a canvas element
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -1440,7 +1287,7 @@ export default function Home() {
       console.error('Error exporting palette:', err);
       toast.error('Failed to export palette');
     }
-  };
+  }, [randomColors]);
   
   // Function to handle advanced color generation with user-provided options
   function handleAdvancedGeneration(options: {
@@ -1609,6 +1456,157 @@ export default function Home() {
     }
   };
   
+  // Function to handle generating random palette
+  const handleGenerateRandom = useCallback(() => {
+    try {
+      // Select a random harmony type
+      const harmonyTypes: HarmonyType[] = [
+        'analogous', 'monochromatic', 'triad', 'complementary', 
+        'splitComplementary', 'tetrad', 'square'
+      ];
+      const randomType = harmonyTypes[Math.floor(Math.random() * harmonyTypes.length)];
+      
+      // Generate a random base color
+      const randomHue = Math.floor(Math.random() * 360);
+      const randomSat = 70 + Math.floor(Math.random() * 30); // 70-100% saturation 
+      const randomLit = 45 + Math.floor(Math.random() * 20); // 45-65% lightness
+      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      
+      // Use random saturation style and tone profile for more variety
+      const satStyles = ['muted', 'balanced', 'vibrant'];
+      const toneProfiles = ['light', 'balanced', 'dark'];
+      const randomSatStyle = satStyles[Math.floor(Math.random() * satStyles.length)];
+      const randomToneProfile = toneProfiles[Math.floor(Math.random() * toneProfiles.length)];
+      
+      // Generate new random colors using the beautiful palette generator
+      const newColors = generateBeautifulPalette(baseColor, {
+        harmonyType: randomType,
+        count: 5,
+        saturationStyle: randomSatStyle as any,
+        toneProfile: randomToneProfile as any
+      }).map(color => color.hex);
+      
+      // Add to history
+      const newHistory = paletteHistory.slice(0, historyIndex + 1);
+      newHistory.push(newColors);
+      setPaletteHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      // Update UI with new colors
+      setRandomColors(newColors);
+      
+      // Update analysis for later use
+      const analysis = analyzeColorPalette(newColors);
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+      
+      console.log(`Button: Generated ${randomType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
+      
+      // Desktop behavior: Keep chat history unless it's just the welcome message
+      // Mobile behavior: Always reset to initial message
+      
+      // Check if we're on mobile
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      
+      // Check if we only have the welcome message or no advice messages yet
+      const hasOnlyWelcomeMessage = adviceMessages.length <= 1 && !adviceGivenForCurrentPalette;
+      
+      // On mobile or if we only have welcome message, reset to initial
+      if (isMobile || hasOnlyWelcomeMessage) {
+        setAdviceMessages([
+          {
+            id: '1',
+            text: 'Press Enter to generate palettes, or click Ask Bobby for advice',
+            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+          }
+        ]);
+      }
+      
+      // Reset the advice flag when a new palette is generated
+      setAdviceGivenForCurrentPalette(false);
+      
+      // Toggle the reset chat panel state to force it to reset
+      setResetChatPanelState(true);
+    } catch (error) {
+      console.error('Error generating random palette:', error);
+      toast.error('Failed to generate palette');
+    }
+  }, [paletteHistory, historyIndex, setPaletteHistory, setHistoryIndex, setRandomColors, adviceMessages, setAdviceMessages, setAdviceGivenForCurrentPalette, setResetChatPanelState, adviceGivenForCurrentPalette]);
+  
+  // Function to handle generating palette with specific harmony
+  const handleGenerateWithHarmony = useCallback((harmonyType: HarmonyType) => {
+    try {
+      // Generate a random base color
+      const randomHue = Math.floor(Math.random() * 360);
+      const randomSat = 70 + Math.floor(Math.random() * 30); // 70-100% saturation 
+      const randomLit = 45 + Math.floor(Math.random() * 20); // 45-65% lightness
+      const baseColor = tinycolor(`hsl(${randomHue}, ${randomSat}%, ${randomLit}%)`).toHexString();
+      
+      // Use random saturation style and tone profile for more variety
+      const satStyles = ['muted', 'balanced', 'vibrant'];
+      const toneProfiles = ['light', 'balanced', 'dark'];
+      const randomSatStyle = satStyles[Math.floor(Math.random() * satStyles.length)];
+      const randomToneProfile = toneProfiles[Math.floor(Math.random() * toneProfiles.length)];
+      
+      // Generate new harmony colors using the beautiful palette generator
+      const newColors = generateBeautifulPalette(baseColor, {
+        harmonyType: harmonyType,
+        count: 5,
+        saturationStyle: randomSatStyle as any,
+        toneProfile: randomToneProfile as any
+      }).map(color => color.hex);
+      
+      // Add to history
+      const newHistory = paletteHistory.slice(0, historyIndex + 1);
+      newHistory.push(newColors);
+      setPaletteHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      // Update UI with new colors
+      setRandomColors(newColors);
+      
+      // Update analysis for later use
+      const analysis = analyzeColorPalette(newColors);
+      (window as any).__latestAnalysis = {
+        advice: analysis.advice,
+        score: analysis.score
+      };
+      
+      console.log(`Generated ${harmonyType} palette with ${randomSatStyle} saturation and ${randomToneProfile} tone profile`);
+      
+      // Desktop behavior: Keep chat history unless it's just the welcome message
+      // Mobile behavior: Always reset to initial message
+      
+      // Check if we're on mobile
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      
+      // Check if we only have the welcome message or no advice messages yet
+      const hasOnlyWelcomeMessage = adviceMessages.length <= 1 && !adviceGivenForCurrentPalette;
+      
+      // On mobile or if we only have welcome message, reset to initial
+      if (isMobile || hasOnlyWelcomeMessage) {
+        setAdviceMessages([
+          {
+            id: '1',
+            text: 'Press Enter to generate palettes, or click Ask Bobby for advice',
+            icon: <Image src={BobbyIcon} alt="Bobby" width={36} height={36} />
+          }
+        ]);
+      }
+      
+      // Reset the advice flag when a new palette is generated
+      setAdviceGivenForCurrentPalette(false);
+      
+      // Toggle the reset chat panel state to force it to reset
+      setResetChatPanelState(true);
+    } catch (error) {
+      console.error('Error generating palette:', error);
+      toast.error('Failed to generate palette');
+    }
+  }, [paletteHistory, historyIndex, setPaletteHistory, setHistoryIndex, setRandomColors, adviceMessages, setAdviceMessages, setAdviceGivenForCurrentPalette, setResetChatPanelState, adviceGivenForCurrentPalette]);
+  
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
@@ -1776,15 +1774,16 @@ export default function Home() {
             onAskForAdvice={handleAskForAdvice}
             onUndo={handleUndo}
             onRedo={handleRedo}
+            resetClickState={resetChatPanelState}
           />
         </div>
       </main>
       
       {/* Mobile layout */}
-      <div className="md:hidden color-palette-container overflow-hidden pb-60">
+      <div className="md:hidden color-palette-container flex flex-col h-[calc(100vh-68px)]">
         {randomColors.length > 0 ? (
-          <>
-            <div className="mobile-palette-wrapper mb-4"> 
+          <div className="flex flex-col h-full">
+            <div className="mobile-palette-wrapper flex-grow overflow-hidden"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1797,7 +1796,7 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="flex flex-col w-full">
+                  <div className="flex flex-col w-full h-full">
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
@@ -1819,8 +1818,8 @@ export default function Home() {
               </DndContext>
             </div>
             
-            {/* Fixed bottom controls for mobile */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+            {/* Bottom controls for mobile - now directly adjacent to the palette */}
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
               {/* Message/rating box */}
               <div className="mobile-rating-box mb-4">
                 <div className="mobile-rating-box-inner">
@@ -1902,10 +1901,10 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <div className="flex flex-col items-center justify-center px-4 py-8 h-[80vh] w-full">
+          <div className="flex flex-col h-full">
+            <div className="flex flex-col items-center justify-center px-4 py-8 flex-grow w-full">
               <div className="flex items-center justify-center w-16 h-16 mb-3">
                 <Image src={BobbyIcon} alt="Bobby" width={60} height={60} />
               </div>
@@ -1914,8 +1913,8 @@ export default function Home() {
               </p>
             </div>
             
-            {/* Fixed bottom controls for mobile even in empty state */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
+            {/* Bottom controls for mobile even in empty state - now directly adjacent */}
+            <div className="bottom-controls-container bg-white shadow-lg border-t border-gray-200 px-4 py-4 z-50 md:hidden">
               {/* Action buttons (undo, redo, save, download) */}
               <div className="mobile-actions mb-4">
                 <div className="inline-grid grid-cols-4 gap-3">
@@ -1977,7 +1976,7 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
       
@@ -2026,7 +2025,9 @@ const ColorItem = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? transition : undefined,
-    backgroundColor: color
+    backgroundColor: color,
+    height: `${100 / 5}%`, // Divide available height by number of colors (5)
+    minHeight: '75px' // Minimum height for very tall screens
   };
   
   const isDark = tinycolor(color).isDark();
@@ -2035,11 +2036,11 @@ const ColorItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`color-palette-item ${isDragging ? 'z-10 shadow-lg' : 'z-0'}`}
+      className={`color-palette-item flex-grow ${isDragging ? 'z-10 shadow-lg' : 'z-0'}`}
       {...attributes}
     >
       <div
-        className="flex items-center justify-between w-full h-[64px] px-4"
+        className="flex items-center justify-between w-full h-full px-4"
         onClick={() => onColorClick(color)}
       >
         <span className="font-mono text-sm" style={{ color: isDark ? 'white' : 'black' }}>
