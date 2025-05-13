@@ -1781,7 +1781,7 @@ export default function Home() {
       </main>
       
       {/* Mobile layout */}
-      <div className="mobile-palette-container md:hidden" style={{ height: 'var(--app-height)' }}>
+      <div className="mobile-palette-container md:hidden">
         {randomColors.length > 0 ? (
           <>
             <div className="mobile-colors-grid"> 
@@ -1819,7 +1819,7 @@ export default function Home() {
               </DndContext>
             </div>
           
-            <div className="mx-3 mt-4 mb-3 rounded-lg bg-gray-100 flex-shrink-0" style={{ maxHeight: '18vh', overflow: 'auto', padding: 0 }}>
+            <div className="mobile-rating-box mx-3 mt-4 mb-3 rounded-lg bg-gray-100 flex-shrink-0" style={{ maxHeight: '18vh', overflow: 'auto', padding: 0 }}>
               <div className="flex items-start p-2.5">
                 <div className="flex-shrink-0 mr-2">
                   <Image src={BobbyIcon} alt="Bobby" width={28} height={28} />
@@ -1837,7 +1837,7 @@ export default function Home() {
             </div>
             
             {/* Icon buttons moved from top to bottom */}
-            <div className="flex items-center justify-between mx-3 my-2 flex-shrink-0">
+            <div className="mobile-action-buttons flex items-center justify-between mx-3 my-2 flex-shrink-0">
               <button 
                 onClick={handleUndo}
                 disabled={!canUndo}
@@ -1890,7 +1890,7 @@ export default function Home() {
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-3 pb-3 pt-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ 
+        <div className="mobile-action-buttons px-3 pb-3 pt-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ 
           paddingBottom: 'calc(12px + var(--safe-area-inset-bottom))',
           marginBottom: 0
         }}>
@@ -1956,6 +1956,9 @@ const MobileSortableColorItem = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? transition : undefined,
+    backgroundColor: color,
+    position: 'relative' as const,
+    flex: '1 1 0%',
     touchAction: 'none', // Improve touch handling
   };
   
@@ -1964,11 +1967,8 @@ const MobileSortableColorItem = ({
   return (
     <div
       ref={setNodeRef}
-      style={{
-        ...style,
-        backgroundColor: color,
-      }}
-      className={`mobile-color-item w-full ${isDragging ? 'z-10' : 'z-0'}`}
+      style={style}
+      className={`mobile-color-item ${isDragging ? 'z-10' : 'z-0'}`}
       {...attributes}
     >
       <div

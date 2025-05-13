@@ -29,53 +29,80 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-        {/* Script to handle mobile layout better */}
+        {/* Script to handle mobile layout better - aggressive approach */}
         <script dangerouslySetInnerHTML={{
           __html: `
-            // More reliable viewport height fix for mobile browsers
-            function setAppHeight() {
-              // Get the actual viewport height
-              let vh = window.innerHeight * 0.01;
-              // Set the CSS variable
-              document.documentElement.style.setProperty('--app-height', \`\${window.innerHeight}px\`);
+            // Fix for mobile 100vh issue - aggressive approach
+            (function() {
+              // Force layout recalculation on all browsers
+              function fixViewportHeight() {
+                // Get viewport dimensions
+                const windowHeight = window.innerHeight;
+                
+                // Apply viewport height to root and document
+                document.documentElement.style.setProperty('--app-height', \`\${windowHeight}px\`);
+                
+                // Force reflow through multiple approaches - important for Safari
+                document.body.style.height = \`\${windowHeight}px\`;
+                document.documentElement.style.height = \`\${windowHeight}px\`;
+                
+                // Forcefully prevent scrolling on body and html
+                document.body.style.overflow = 'hidden';
+                document.documentElement.style.overflow = 'hidden';
+                
+                // Scroll to top to ensure we're at the top of the page
+                window.scrollTo(0, 0);
+                
+                // Request animation frame for smoother handling
+                requestAnimationFrame(() => {
+                  // Apply the height again after a frame to ensure it sticks
+                  document.documentElement.style.setProperty('--app-height', \`\${windowHeight}px\`);
+                });
+              }
               
-              // Force relayout for iOS/Chrome
-              document.body.style.height = '100%';
-              document.body.style.height = 'var(--app-height)';
+              // Run immediately
+              fixViewportHeight();
               
-              // Scroll to top to avoid issues with keyboard
-              window.scrollTo(0, 0);
-            }
-            
-            // Run on page load
-            window.addEventListener('load', setAppHeight);
-            
-            // Update on resize with debounce
-            let resizeTimer;
-            window.addEventListener('resize', function() {
-              clearTimeout(resizeTimer);
-              resizeTimer = setTimeout(setAppHeight, 100);
-            });
-            
-            // Update immediately for first render
-            setAppHeight();
-            
-            // Update on orientation change
-            window.addEventListener('orientationchange', function() {
-              // Wait a bit for the orientation change to complete
-              setTimeout(setAppHeight, 200);
-            });
-            
-            // Additional fixes for iOS
-            window.addEventListener('focusin', function() {
-              // Keyboard appeared, adjust height after a delay
-              setTimeout(setAppHeight, 300);
-            });
-            
-            window.addEventListener('focusout', function() {
-              // Keyboard disappeared, reset height
-              setTimeout(setAppHeight, 300);
-            });
+              // Run on first layout event
+              window.addEventListener('load', fixViewportHeight, { passive: true });
+              
+              // Run on resize with debounce
+              let resizeTimer;
+              window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(fixViewportHeight, 50);
+              }, { passive: true });
+              
+              // Run on orientation change
+              window.addEventListener('orientationchange', function() {
+                // Run immediately
+                fixViewportHeight();
+                
+                // Run again after a short delay to catch iOS adjustments
+                setTimeout(fixViewportHeight, 50);
+                
+                // Run a third time after iOS fully adjusts
+                setTimeout(fixViewportHeight, 150);
+              }, { passive: true });
+              
+              // Additional mobile-specific events
+              window.addEventListener('touchend', function() {
+                // Short delay after touch ends (helpful for some browsers)
+                setTimeout(fixViewportHeight, 100);
+              }, { passive: true });
+              
+              // For mobile keyboard appearing/disappearing
+              window.addEventListener('focusin', function() {
+                setTimeout(fixViewportHeight, 200);
+              }, { passive: true });
+              
+              window.addEventListener('focusout', function() {
+                setTimeout(fixViewportHeight, 200);
+              }, { passive: true });
+              
+              // Run periodically to ensure it stays correct (some browsers need this)
+              setInterval(fixViewportHeight, 2000);
+            })();
           `
         }} />
       </head>
