@@ -1619,7 +1619,9 @@ export default function Home() {
           </div>
           
           <div className="flex-shrink-0">
-            <Navigation />
+            <div className="hidden md:block">
+              <Navigation />
+            </div>
             <div className="md:hidden">
               <MobileNavigation />
             </div>
@@ -1677,8 +1679,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Mobile action buttons */}
-      <div className="md:hidden flex justify-between gap-2 px-4 mt-2 mb-4">
+      {/* Mobile action buttons - top row (now hidden since moved to bottom) */}
+      <div className="md:hidden hidden justify-between gap-2 px-4 mt-2 mb-4">
         <button
           onClick={handleUndo}
           disabled={!canUndo}
@@ -1782,7 +1784,7 @@ export default function Home() {
       <div className="flex flex-col md:hidden h-screen overflow-hidden">
         {randomColors.length > 0 ? (
           <>
-            <div className="flex-1 min-h-0 overflow-hidden"> 
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col"> 
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1795,7 +1797,10 @@ export default function Home() {
                   items={colorIds.slice(0, randomColors.length)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="grid grid-rows-5 h-full">
+                  <div className="grid auto-rows-fr w-full" style={{ 
+                    height: 'calc(100vh - 280px)',
+                    gridTemplateRows: `repeat(${randomColors.length}, 1fr)`
+                  }}>
                     {randomColors.map((color, index) => {
                       const itemId = colorIds[index] || `color-${index}`;
                       const isBeingDragged = activeId === itemId;
@@ -1817,48 +1822,90 @@ export default function Home() {
               </DndContext>
             </div>
           
-            <div className="mx-4 mt-4 rounded-xl bg-gray-100 p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mr-3">
-                  <Image src={BobbyIcon} alt="Bobby" width={48} height={48} />
+            <div className="mx-3 mt-4 mb-3 rounded-lg bg-gray-100" style={{ maxHeight: '18vh', overflow: 'auto', padding: 0 }}>
+              <div className="flex items-start p-2.5">
+                <div className="flex-shrink-0 mr-2">
+                  <Image src={BobbyIcon} alt="Bobby" width={28} height={28} />
                 </div>
                 <div>
-                  <div className="flex items-center mb-1">
-                    <span className="font-medium">Rating: </span>
-                    <span className="ml-1 text-blue-500 font-medium">{randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}</span>
+                  <div className="flex items-center mb-0.5">
+                    <span className="font-medium text-xs">Rating: </span>
+                    <span className="ml-1 text-blue-500 font-medium text-xs">{randomScore ? `${randomScore.toFixed(1)}/10` : '7.2/10'}</span>
                   </div>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-xs text-gray-700 leading-tight">
                     {randomColorAdvice || "The colors are generally well-chosen, but one feels slightly off. Try tweaking it for better balance. Try creating more variety in lightness values for better visual hierarchy."}
                   </p>
                 </div>
               </div>
             </div>
+            
+            {/* Icon buttons moved from top to bottom */}
+            <div className="flex items-center justify-between mx-3 my-2">
+              <button 
+                onClick={handleUndo}
+                disabled={!canUndo}
+                className={`w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center ${!canUndo ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 14L4 9l5-5"/>
+                  <path d="M4 9h11a4 4 0 0 1 0 8h-1"/>
+                </svg>
+              </button>
+              <button 
+                onClick={handleRedo}
+                disabled={!canRedo}
+                className={`w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center ${!canRedo ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 14l5-5-5-5"/>
+                  <path d="M20 9H9a4 4 0 0 0 0 8h1"/>
+                </svg>
+              </button>
+              <button 
+                onClick={handleSavePalette}
+                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+              </button>
+              <button 
+                onClick={handleExportPalette}
+                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+            </div>
           </>
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 p-4">
-            <div className="flex items-center justify-center w-24 h-24 mb-4">
-              <Image src={BobbyIcon} alt="Bobby" width={100} height={100} />
+            <div className="flex items-center justify-center w-16 h-16 mb-3">
+              <Image src={BobbyIcon} alt="Bobby" width={60} height={60} />
             </div>
-            <p className="text-center text-gray-500 mb-6">
+            <p className="text-center text-gray-500 text-sm mb-4">
               Press Enter to generate palettes, or click Ask Bobby for advice
             </p>
           </div>
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-4 pb-8 pt-2 mt-auto sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0.5rem))' }}>
-          <div className="flex flex-col gap-3">
+        <div className="px-3 py-1 mt-0 mb-4 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0.25rem)' }}>
+          <div className="flex gap-2">
             <button
               onClick={handleAskForAdvice}
-              className="w-full flex items-center justify-center px-4 py-3 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-center px-3 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
             >
-              <span className="text-base font-medium">Ask Bobby</span>
+              <span className="text-xs font-medium">Ask Bobby</span>
             </button>
             <button
               onClick={handleGenerateRandom}
-              className="w-full flex items-center justify-center px-4 py-3 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+              className="w-full flex items-center justify-center px-3 py-1.5 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
             >
-              <span className="text-base font-medium">Generate</span>
+              <span className="text-xs font-medium">Generate</span>
             </button>
           </div>
         </div>
