@@ -1890,7 +1890,7 @@ export default function Home() {
         )}
         
         {/* Mobile Action Buttons */}
-        <div className="px-3 py-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0.25rem)' }}>
+        <div className="px-3 pb-3 pt-1 flex-shrink-0 sticky bottom-0 bg-white z-10" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0.25rem))' }}>
           <div className="flex gap-2">
             <button
               onClick={handleAskForAdvice}
