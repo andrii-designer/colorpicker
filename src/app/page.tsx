@@ -169,6 +169,14 @@ const arraysEqual = (a: string[], b: string[]) => {
   return true;
 };
 
+// Define proper types for tinycolor
+interface TinyColorInstance {
+  toHexString: () => string;
+  toHsl: () => {h: number; s: number; l: number};
+  toHsv: () => {h: number; s: number; v: number};
+  toRgb: () => {r: number; g: number; b: number};
+}
+
 // Sortable color item component for drag and drop
 const SortableColorItem = ({ 
   id, 
@@ -311,6 +319,19 @@ const ColorPickerModal = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const [hexValue, setHexValue] = useState(color.toUpperCase());
   const initialColorRef = useRef(color);
+  const [activeTab, setActiveTab] = useState<'hex' | 'hsl' | 'hsb'>('hex');
+  
+  // Parse color to HSL and HSB values
+  const tc = tinycolor(hexValue) as unknown as TinyColorInstance;
+  const [hslValues, setHslValues] = useState(tc.toHsl());
+  const [hsbValues, setHsbValues] = useState(tc.toHsv());
+  
+  // Update HSL/HSB values when hex changes
+  useEffect(() => {
+    const color = tinycolor(hexValue) as unknown as TinyColorInstance;
+    setHslValues(color.toHsl());
+    setHsbValues(color.toHsv());
+  }, [hexValue]);
   
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -327,6 +348,10 @@ const ColorPickerModal = ({
   
   const handleColorChange = (newColor: string) => {
     setHexValue(newColor.toUpperCase());
+    // Update HSL and HSB values
+    const tc = tinycolor(newColor) as unknown as TinyColorInstance;
+    setHslValues(tc.toHsl());
+    setHsbValues(tc.toHsv());
     // Update the color in real-time, but don't add to history
     onChange(newColor);
   };
@@ -335,8 +360,73 @@ const ColorPickerModal = ({
     setHexValue(e.target.value);
     // Update in real-time if it's a valid hex color
     if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+      const tc = tinycolor(e.target.value) as unknown as TinyColorInstance;
+      setHslValues(tc.toHsl());
+      setHsbValues(tc.toHsv());
       onChange(e.target.value);
     }
+  };
+  
+  // HSL slider handlers
+  const handleHueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newHue = parseInt(e.target.value);
+    const newHsl = { ...hslValues, h: newHue };
+    setHslValues(newHsl);
+    const newColor = tinycolor(newHsl as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHsbValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsv());
+    onChange(newColor);
+  };
+
+  const handleSaturationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSaturation = parseFloat(e.target.value) / 100;
+    const newHsl = { ...hslValues, s: newSaturation };
+    setHslValues(newHsl);
+    const newColor = tinycolor(newHsl as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHsbValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsv());
+    onChange(newColor);
+  };
+
+  const handleLightnessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLightness = parseFloat(e.target.value) / 100;
+    const newHsl = { ...hslValues, l: newLightness };
+    setHslValues(newHsl);
+    const newColor = tinycolor(newHsl as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHsbValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsv());
+    onChange(newColor);
+  };
+
+  // HSB slider handlers
+  const handleHsvHueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newHue = parseInt(e.target.value);
+    const newHsv = { ...hsbValues, h: newHue };
+    setHsbValues(newHsv);
+    const newColor = tinycolor(newHsv as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHslValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsl());
+    onChange(newColor);
+  };
+
+  const handleSaturationBrightnessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSaturation = parseFloat(e.target.value) / 100;
+    const newHsv = { ...hsbValues, s: newSaturation };
+    setHsbValues(newHsv);
+    const newColor = tinycolor(newHsv as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHslValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsl());
+    onChange(newColor);
+  };
+
+  const handleBrightnessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newBrightness = parseFloat(e.target.value) / 100;
+    const newHsv = { ...hsbValues, v: newBrightness };
+    setHsbValues(newHsv);
+    const newColor = tinycolor(newHsv as any).toHexString().toUpperCase();
+    setHexValue(newColor);
+    setHslValues((tinycolor(newColor) as unknown as TinyColorInstance).toHsl());
+    onChange(newColor);
   };
   
   const handleDone = () => {
@@ -351,7 +441,69 @@ const ColorPickerModal = ({
   const handleReset = () => {
     // Reset to initial color
     setHexValue(initialColorRef.current);
+    const tc = tinycolor(initialColorRef.current) as unknown as TinyColorInstance;
+    setHslValues(tc.toHsl());
+    setHsbValues(tc.toHsv());
     onChange(initialColorRef.current);
+  };
+  
+  // Get the background style for slider tracks
+  const getHueGradient = () => {
+    return {
+      background: `linear-gradient(to right, 
+        rgb(255, 0, 0), 
+        rgb(255, 255, 0), 
+        rgb(0, 255, 0), 
+        rgb(0, 255, 255), 
+        rgb(0, 0, 255), 
+        rgb(255, 0, 255), 
+        rgb(255, 0, 0))`
+    };
+  };
+
+  const getSaturationGradient = () => {
+    // Fixed hue and lightness, varying saturation
+    const hue = hslValues.h;
+    const lightness = hslValues.l;
+    return {
+      background: `linear-gradient(to right, 
+        ${tinycolor({h: hue, s: 0, l: lightness} as any).toHexString()}, 
+        ${tinycolor({h: hue, s: 1, l: lightness} as any).toHexString()})`
+    };
+  };
+
+  const getLightnessGradient = () => {
+    // Fixed hue and saturation, varying lightness
+    const hue = hslValues.h;
+    const saturation = hslValues.s;
+    return {
+      background: `linear-gradient(to right, 
+        ${tinycolor({h: hue, s: saturation, l: 0} as any).toHexString()}, 
+        ${tinycolor({h: hue, s: saturation, l: 0.5} as any).toHexString()}, 
+        ${tinycolor({h: hue, s: saturation, l: 1} as any).toHexString()})`
+    };
+  };
+
+  const getHsvSaturationGradient = () => {
+    // Fixed hue and value, varying saturation
+    const hue = hsbValues.h;
+    const value = hsbValues.v;
+    return {
+      background: `linear-gradient(to right, 
+        ${tinycolor({h: hue, s: 0, v: value} as any).toHexString()}, 
+        ${tinycolor({h: hue, s: 1, v: value} as any).toHexString()})`
+    };
+  };
+
+  const getBrightnessGradient = () => {
+    // Fixed hue and saturation, varying value (brightness)
+    const hue = hsbValues.h;
+    const saturation = hsbValues.s;
+    return {
+      background: `linear-gradient(to right, 
+        ${tinycolor({h: hue, s: saturation, v: 0} as any).toHexString()}, 
+        ${tinycolor({h: hue, s: saturation, v: 1} as any).toHexString()})`
+    };
   };
   
   const getModalStyle = () => {
@@ -361,7 +513,7 @@ const ColorPickerModal = ({
       const topPosition = anchorPosition.y;
       
       // Check if there's enough space below
-      const modalHeight = 350; // Approximate height of the modal
+      const modalHeight = 450; // Increased height for the added sliders
       const spaceBelow = viewportHeight - topPosition;
       
       // If not enough space below, position above
@@ -398,14 +550,149 @@ const ColorPickerModal = ({
       style={getModalStyle()}
     >
       <div className="mb-4">
-        <h3 className="text-base font-medium mb-2">Hex Color</h3>
-        <input
-          type="text"
-          value={hexValue}
-          onChange={handleInputChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mb-2"
-        />
-        <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
+        {/* Tabs for switching between color models */}
+        <div className="flex mb-3 border-b">
+          <button
+            onClick={() => setActiveTab('hex')}
+            className={`py-2 px-3 text-sm font-medium ${activeTab === 'hex' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Hex
+          </button>
+          <button
+            onClick={() => setActiveTab('hsl')}
+            className={`py-2 px-3 text-sm font-medium ${activeTab === 'hsl' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            HSL
+          </button>
+          <button
+            onClick={() => setActiveTab('hsb')}
+            className={`py-2 px-3 text-sm font-medium ${activeTab === 'hsb' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            HSB
+          </button>
+        </div>
+
+        {/* Hex input (shown when hex tab is active) */}
+        {activeTab === 'hex' && (
+          <>
+            <h3 className="text-base font-medium mb-2">Hex Color</h3>
+            <input
+              type="text"
+              value={hexValue}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mb-2"
+            />
+          </>
+        )}
+
+        {/* HSL sliders (shown when HSL tab is active) */}
+        {activeTab === 'hsl' && (
+          <div className="space-y-3">
+            <h3 className="text-base font-medium mb-3">HSL Color</h3>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Hue: {Math.round(hslValues.h)}°</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="359"
+                value={Math.round(hslValues.h)}
+                onChange={handleHueChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getHueGradient()}
+              />
+            </div>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Saturation: {Math.round(hslValues.s * 100)}%</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(hslValues.s * 100)}
+                onChange={handleSaturationChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getSaturationGradient()}
+              />
+            </div>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Lightness: {Math.round(hslValues.l * 100)}%</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(hslValues.l * 100)}
+                onChange={handleLightnessChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getLightnessGradient()}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* HSB/HSV sliders (shown when HSB tab is active) */}
+        {activeTab === 'hsb' && (
+          <div className="space-y-3">
+            <h3 className="text-base font-medium mb-3">HSB Color</h3>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Hue: {Math.round(hsbValues.h)}°</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="359"
+                value={Math.round(hsbValues.h)}
+                onChange={handleHsvHueChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getHueGradient()}
+              />
+            </div>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Saturation: {Math.round(hsbValues.s * 100)}%</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(hsbValues.s * 100)}
+                onChange={handleSaturationBrightnessChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getHsvSaturationGradient()}
+              />
+            </div>
+            
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="text-sm text-gray-700">Brightness: {Math.round(hsbValues.v * 100)}%</label>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(hsbValues.v * 100)}
+                onChange={handleBrightnessChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={getBrightnessGradient()}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Color picker is always shown regardless of the active tab */}
+        <div className="mt-3">
+          <HexColorPicker color={hexValue} onChange={handleColorChange} className="w-full" />
+        </div>
       </div>
       
       <div className="flex justify-end space-x-2">
@@ -709,8 +996,8 @@ export default function Home() {
       const newColors = generateBeautifulPalette(baseColor, {
         harmonyType: randomType,
         count: 5,
-        saturationStyle: randomSatStyle as any,
-        toneProfile: randomToneProfile as any
+        toneProfile: randomToneProfile as any,
+        saturationStyle: randomSatStyle as any
       }).map(color => color.hex);
       
       // Analyze the new colors

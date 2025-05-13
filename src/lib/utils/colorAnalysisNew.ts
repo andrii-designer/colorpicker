@@ -1,5 +1,6 @@
 import tinycolor from 'tinycolor2';
 import convert from 'color-convert';
+import { getRandomResponse } from './colorResponseVariations';
 
 // Cast tinycolor to any to avoid type errors
 const tinycolorLib: any = tinycolor;
@@ -655,42 +656,41 @@ export function analyzeColorPalette(colors: string[]): { advice: string; score: 
   // Round the score for display
   const roundedScore = Math.round(score * 10) / 10;
   
-  // Determine message based on score
-  let message: string;
-  let advice: string;
+  // Get component advice for all scores
+  let componentAdvice = '';
   
-  if (score >= 9.0) {
-    message = "Exceptional palette";
-    advice = "Excellent color harmony and contrast! This palette has great balance and visual appeal.";
-  } else if (score >= 8.0) {
-    message = "Excellent palette";
-    advice = "Great color combination! The palette has strong harmony and good contrast.";
-  } else if (score >= 7.0) {
-    message = "Very good palette";
-    advice = "Nice color palette. The colors work well together with good balance.";
-  } else if (score >= 6.0) {
-    message = "Good palette";
-    advice = "Good color palette. " + getAdviceBasedOnWeakestComponent(details);
-  } else if (score >= 5.0) {
-    message = "Average palette";
-    advice = "Decent color combination. Try adjusting the colors to create more visual interest and harmony.";
-  } else if (score >= 4.0) {
-    message = "Below average palette";
-    advice = "Consider adjusting saturation and lightness levels for better balance and harmony.";
-  } else {
-    message = "Needs improvement";
-    advice = "Try generating a new palette or adjusting these colors for better harmony and contrast.";
+  // For excellent palettes (8.0+), provide more nuanced component advice
+  if (score >= 8.0) {
+    // Find the weakest component, even if it's still pretty good
+    const weakestComponent = getWeakestComponent(details);
+    
+    // For very high scores, give more gentle advice about possible improvements
+    const enhancementAdvice = getEnhancementAdviceForComponent(weakestComponent);
+    if (enhancementAdvice) {
+      componentAdvice = enhancementAdvice;
+    }
+  }
+  // For good palettes (7.0-7.9), provide more direct component advice
+  else if (score >= 7.0) {
+    componentAdvice = getAdviceBasedOnWeakestComponent(details);
+  }
+  // For average palettes (6.0-6.9), provide standard component advice
+  else if (score >= 6.0) {
+    componentAdvice = getAdviceBasedOnWeakestComponent(details);
   }
   
+  // Get a random response based on the score
+  const response = getRandomResponse(roundedScore, componentAdvice);
+  
   return {
-    advice,
+    advice: response.advice,
     score: roundedScore,
-    message
+    message: response.message
   };
 }
 
-// Helper function to provide targeted advice based on the weakest component
-function getAdviceBasedOnWeakestComponent(details: Record<string, number>): string {
+// Helper function to determine the weakest component
+function getWeakestComponent(details: Record<string, number>): string {
   const components = ['harmony', 'contrast', 'tone', 'chroma', 'gamut'];
   let lowestScore = 1;
   let weakestComponent = '';
@@ -702,6 +702,31 @@ function getAdviceBasedOnWeakestComponent(details: Record<string, number>): stri
       weakestComponent = component;
     }
   }
+  
+  return weakestComponent;
+}
+
+// Helper function to provide more nuanced advice for high-scoring palettes
+function getEnhancementAdviceForComponent(component: string): string {
+  switch (component) {
+    case 'harmony':
+      return "For even more refinement, you could experiment with slightly adjusting one of the hues to strengthen the color relationships.";
+    case 'contrast':
+      return "If you want to enhance it further, you could increase the contrast slightly between certain color pairs for more visual impact.";
+    case 'tone':
+      return "For additional visual interest, you might consider adding a bit more variation in the lightness values.";
+    case 'chroma':
+      return "To further enhance this palette, you could experiment with subtle adjustments to the saturation of one or two colors.";
+    case 'gamut':
+      return "For optimal display across all devices, consider small adjustments to any colors that might be near the edge of the color gamut.";
+    default:
+      return "";
+  }
+}
+
+// Helper function to provide targeted advice based on the weakest component
+function getAdviceBasedOnWeakestComponent(details: Record<string, number>): string {
+  const weakestComponent = getWeakestComponent(details);
   
   // Return specific advice based on the weakest component
   switch (weakestComponent) {
