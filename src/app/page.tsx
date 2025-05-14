@@ -2052,6 +2052,10 @@ const MobileColorItem = ({
   };
   
   const isDark = tinycolor(color).isDark();
+  
+  // Determine button background and text colors based on the background color
+  const buttonBgColor = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+  const textColor = isDark ? 'white' : 'black';
 
   return (
     <div
@@ -2064,7 +2068,7 @@ const MobileColorItem = ({
         className="flex items-center justify-between w-full h-full px-4 py-4"
         onClick={() => onColorClick(color)}
       >
-        <span className="font-mono text-sm" style={{ color: isDark ? 'white' : 'black' }}>
+        <span className="font-mono text-sm" style={{ color: textColor }}>
           {color.toUpperCase()}
         </span>
         <div className="flex space-x-2">
@@ -2074,8 +2078,8 @@ const MobileColorItem = ({
               e.stopPropagation();
               onEditClick(color, index, e as React.MouseEvent);
             }}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
-            style={{ color: isDark ? 'white' : 'black' }}
+            className="w-7 h-7 flex items-center justify-center rounded-full transition-colors"
+            style={{ backgroundColor: buttonBgColor, color: textColor }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -2089,8 +2093,8 @@ const MobileColorItem = ({
               navigator.clipboard.writeText(color);
               toast.success(`Copied ${color.toUpperCase()} to clipboard`);
             }}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors"
-            style={{ color: isDark ? 'white' : 'black' }}
+            className="w-7 h-7 flex items-center justify-center rounded-full transition-colors"
+            style={{ backgroundColor: buttonBgColor, color: textColor }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -2101,11 +2105,11 @@ const MobileColorItem = ({
           {/* Drag handle */}
           <button
             {...listeners}
-            className={`w-7 h-7 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             title="Drag to reorder"
-            style={{ color: isDark ? 'white' : 'black' }}
+            style={{ backgroundColor: buttonBgColor, color: textColor }}
           >
-            <span className="text-xs font-bold">↕</span>
+            <span className="text-base font-bold">↕</span>
           </button>
         </div>
       </div>

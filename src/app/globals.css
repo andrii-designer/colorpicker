@@ -121,4 +121,18 @@ body {
     border-radius: 12px;
     padding: 12px;
   }
+  
+  /* Mobile color item button styles */
+  .color-palette-item button {
+    /* Fix for inconsistent opacity and backdrop-blur behavior on mobile */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  
+  /* Ensures button icons are consistent across browsers */
+  .color-palette-item button svg,
+  .color-palette-item button span {
+    position: relative;
+    z-index: 2;
+  }
 }
