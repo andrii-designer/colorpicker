@@ -8,6 +8,12 @@ const PalettesPrefetcher = dynamic(
   { ssr: false }
 );
 
+// Dynamically import the mobile viewport fix component to avoid SSR issues
+const MobileViewportFix = dynamic(
+  () => import('./components/MobileViewportFix'),
+  { ssr: false }
+);
+
 // Initialize the Inter font
 const inter = Inter({
   subsets: ['latin'],
@@ -143,6 +149,8 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         {children}
+        {/* Add mobile viewport fix component */}
+        <MobileViewportFix />
         {/* Prefetch palettes data in the background */}
         <PalettesPrefetcher />
       </body>
