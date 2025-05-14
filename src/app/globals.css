@@ -136,3 +136,50 @@ body {
     z-index: 2;
   }
 }
+
+/* Mobile color picker adjustments */
+.react-colorful-wrapper {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  max-width: 250px;
+}
+
+.react-colorful-wrapper .react-colorful {
+  width: 100% !important;
+  height: 240px !important; /* Fixed height */
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  max-width: 250px;
+}
+
+.react-colorful-wrapper .react-colorful__saturation {
+  border-radius: 0 !important;
+  border-bottom: none !important;
+  margin: 0 !important;
+  height: 200px !important;
+}
+
+.react-colorful-wrapper .react-colorful__hue {
+  height: 40px !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+.react-colorful-wrapper .react-colorful__pointer {
+  width: 20px !important;
+  height: 20px !important;
+  border-width: 2px !important;
+}
+
+/* Fix rounded corners */
+.react-colorful-wrapper .react-colorful,
+.react-colorful-wrapper .react-colorful__saturation,
+.react-colorful-wrapper .react-colorful__hue,
+.react-colorful-wrapper .react-colorful__last-control {
+  border-radius: 0 !important;
+}

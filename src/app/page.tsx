@@ -31,6 +31,7 @@ import { MobileNavigation } from './components/ui/MobileNavigation';
 import { usePathname } from 'next/navigation';
 import { MobileBottomBar } from './components/ui/MobileBottomBar';
 import { MobileStackLayout } from './components/MobileStackLayout';
+import MobileColorPicker from './components/MobileColorPicker';
 
 // Custom hook for managing history state with undo/redo functionality
 function useHistoryState<T>(initialState: T) {
@@ -765,8 +766,10 @@ export default function Home() {
   // Color picker state
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [currentEditingColor, setCurrentEditingColor] = useState('');
-  const [currentEditingIndex, setCurrentEditingIndex] = useState(-1);
+  const [currentEditingIndex, setCurrentEditingIndex] = useState<number>(-1);
   const [colorPickerPosition, setColorPickerPosition] = useState<{ x: number, y: number } | undefined>(undefined);
+  const [isMobile, setIsMobile] = useState(false);
+  
   // Track the pre-editing colors for history
   const preEditColorsRef = useRef<string[]>([]);
   
@@ -1010,6 +1013,7 @@ export default function Home() {
   // Handle closing the color picker
   const handleCloseColorPicker = () => {
     setColorPickerVisible(false);
+    setCurrentEditingIndex(-1); // Reset editing index
     
     // When the color picker is closed, add the final color to history
     if (currentEditingIndex >= 0 && preEditColorsRef.current.length > 0) {
@@ -1704,6 +1708,22 @@ export default function Home() {
     }
   }, [randomColors]);
   
+  // Check for mobile device on mount and when window resizes
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Add listener for window resize
+    window.addEventListener('resize', checkMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
   // Render the new UI
   return (
     <div className="h-screen flex flex-col bg-white max-w-full overflow-hidden">
@@ -2000,12 +2020,20 @@ export default function Home() {
       
       {/* Keep all the modals and notifications */}
       {colorPickerVisible && (
-        <ColorPickerModal
-          color={currentEditingColor}
-          onClose={handleCloseColorPicker}
-          onChange={handleColorChange}
-          anchorPosition={colorPickerPosition}
-        />
+        isMobile ? (
+          <MobileColorPicker
+            color={currentEditingColor}
+            onChange={handleColorChange}
+            onClose={handleCloseColorPicker}
+          />
+        ) : (
+          <ColorPickerModal
+            color={currentEditingColor}
+            onClose={handleCloseColorPicker}
+            onChange={handleColorChange}
+            anchorPosition={colorPickerPosition}
+          />
+        )
       )}
       
       {/* Toaster for notifications */}
