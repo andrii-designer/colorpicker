@@ -2056,6 +2056,7 @@ const MobileColorItem = ({
   // Determine button background and text colors based on the background color
   const buttonBgColor = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)';
   const textColor = isDark ? 'white' : 'black';
+  const arrowIcon = isDark ? '/mobile-arrow-white.svg' : '/mobile-arrow-black.svg';
 
   return (
     <div
@@ -2109,7 +2110,14 @@ const MobileColorItem = ({
             title="Drag to reorder"
             style={{ backgroundColor: buttonBgColor, color: textColor }}
           >
-            <span className="text-base font-bold">↕</span>
+            <img 
+              src={arrowIcon} 
+              alt="Drag handle" 
+              className="sm:hidden" // Only show on mobile
+              width={8} 
+              height={12} 
+            />
+            <span className="hidden sm:inline text-base font-bold">↕</span>
           </button>
         </div>
       </div>
