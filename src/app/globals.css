@@ -21,6 +21,15 @@ body {
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
+  /* Prevent page scroll on mobile */
+  html, body {
+    overflow: hidden;
+    height: 100%;
+    position: fixed;
+    width: 100%;
+    touch-action: manipulation;
+  }
+  
   /* Full-height mobile layout */
   .mobile-stack-layout {
     display: flex;

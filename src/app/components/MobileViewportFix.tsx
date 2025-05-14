@@ -40,6 +40,15 @@ export default function MobileViewportFix() {
         
         // Set CSS variable for app height
         document.documentElement.style.setProperty('--app-height', `${windowHeight}px`);
+        document.documentElement.style.setProperty('--vh', `${windowHeight * 0.01}px`);
+        
+        // Ensure we're not scrolling on body
+        document.body.style.overflow = 'hidden';
+        
+        // Immediately scroll to top (iOS specific fix)
+        if (isIOS) {
+          window.scrollTo(0, 0);
+        }
         
         // Force a reflow to ensure immediate application
         void document.documentElement.offsetHeight;
@@ -73,8 +82,10 @@ export default function MobileViewportFix() {
       if (!isMobileDevice()) {
         // Remove CSS properties to restore desktop layout
         document.documentElement.style.removeProperty('--app-height');
+        document.documentElement.style.removeProperty('--vh');
         document.documentElement.style.height = '';
         document.body.style.height = '';
+        document.body.style.overflow = '';
       }
     };
     
@@ -100,8 +111,10 @@ export default function MobileViewportFix() {
       
       // Restore normal layout when component unmounts
       document.documentElement.style.removeProperty('--app-height');
+      document.documentElement.style.removeProperty('--vh');
       document.documentElement.style.height = '';
       document.body.style.height = '';
+      document.body.style.overflow = '';
     };
   }, []);
   
