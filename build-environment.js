@@ -118,16 +118,22 @@ function getAllFiles(dirPath, arrayOfFiles = []) {
 
 // Fix globals.css issues (handles different Tailwind configurations)
 function fixGlobalsCss() {
-  console.log('Fixing globals.css...');
+  console.log('Checking globals.css...');
   
-  // Ensure the global CSS is simple and works everywhere
-  const globalsCss = `@tailwind base;
+  const globalsPath = path.join(__dirname, 'src', 'app', 'globals.css');
+  
+  // Check if globals.css exists
+  if (!fs.existsSync(globalsPath)) {
+    console.log('Creating globals.css with default template...');
+    // Only create the file if it doesn't exist
+    const defaultGlobalsCss = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-rgb: 255, 255, 255;
+  --vh: 1vh; /* CSS variable for accurate viewport height on mobile */
 }
 
 body {
@@ -140,9 +146,27 @@ body {
     text-wrap: balance;
   }
 }`;
-  
-  fs.writeFileSync(path.join(__dirname, 'src', 'app', 'globals.css'), globalsCss);
-  console.log('Fixed globals.css');
+    
+    fs.writeFileSync(globalsPath, defaultGlobalsCss);
+    console.log('Created globals.css with default template');
+  } else {
+    // File exists, check if it has the basic Tailwind imports
+    const content = fs.readFileSync(globalsPath, 'utf8');
+    if (!content.includes('@tailwind base') || !content.includes('@tailwind components') || !content.includes('@tailwind utilities')) {
+      console.log('Fixing missing Tailwind imports in globals.css...');
+      // Only fix the Tailwind imports, preserve the rest of the file
+      const fixedContent = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+${content.replace(/@tailwind base;|@tailwind components;|@tailwind utilities;/g, '')}`;
+      
+      fs.writeFileSync(globalsPath, fixedContent);
+      console.log('Fixed Tailwind imports in globals.css while preserving custom styles');
+    } else {
+      console.log('globals.css looks good - preserving all custom styles');
+    }
+  }
 }
 
 // Update project configuration for the detected environment
