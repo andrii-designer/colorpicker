@@ -2105,11 +2105,7 @@ const MobileColorItem = ({
             title="Drag to reorder"
             style={{ color: isDark ? 'white' : 'black' }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="8" y1="6" x2="16" y2="6"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-              <line x1="8" y1="18" x2="16" y2="18"></line>
-            </svg>
+            <span className="text-xs font-bold">↕</span>
           </button>
         </div>
       </div>
