@@ -5,75 +5,111 @@
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-rgb: 255, 255, 255;
-  --safe-area-bottom: env(safe-area-inset-bottom, 16px);
+  --vh: 1vh; /* CSS variable for accurate viewport height on mobile */
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
-  /* Ensure we don't get unintentional scrolling on mobile */
-  overflow-x: hidden;
-  position: relative;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-  
-  /* Safe area insets for mobile devices */
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 16px);
-  }
-  
-  /* Force bottom controls to respect safe area */
-  .bottom-controls-container {
-    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 16px);
-  }
-  
-  /* Ensure colors take up all available space */
-  .color-palette-item {
-    display: flex;
-    width: 100%;
-  }
-}
-
-/* Optimizations for iOS devices */
-@supports (-webkit-touch-callout: none) {
-  .h-\[calc\(100vh-68px\)\] {
-    height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
-  }
-  
-  /* Fix for mobile bottom utility space */
-  .bottom-controls-container {
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-  }
 }
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
-  .flex-1 {
-    min-height: 0;
-  }
-  
-  /* Ensure color items distribute evenly */
-  .color-palette-item {
-    flex: 1 1 0%;
-    min-height: 0;
-  }
-  
-  /* Make sure bottom controls stick to the bottom of mobile browser */
-  .bottom-controls-container {
+  /* Full-height mobile layout */
+  .mobile-stack-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Fallback */
+    height: calc(var(--vh, 1vh) * 100); /* Use CSS variable for more accurate height */
+    width: 100%;
+    overflow: hidden;
     position: fixed;
-    bottom: 0;
+    top: 0;
     left: 0;
     right: 0;
-    width: 100%;
-    z-index: 50;
+    bottom: 0;
+    z-index: 20; /* Ensure this is above other elements */
   }
   
-  /* Add padding to the bottom of the content to prevent it from being hidden behind the fixed bar */
-  .md\:hidden.flex.flex-col {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 16px));
+  /* Mobile header row with fixed height */
+  .mobile-header-row {
+    flex: 0 0 auto;
+    z-index: 10;
+    background-color: white;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  
+  /* Mobile color palette row that fills available space */
+  .mobile-palette-row {
+    flex: 1 1 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Important for Firefox */
+  }
+  
+  /* Mobile bottom controls row with min-height */
+  .mobile-bottom-row {
+    flex: 0 0 auto;
+    min-height: 216px;
+    z-index: 10;
+    background-color: white;
+    border-top: 1px solid #e5e5e5;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
+  }
+  
+  /* Container for the color items */
+  .mobile-colors-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  /* Make color items distribute evenly and fill all available space */
+  .color-palette-item {
+    flex: 1 1 0%;
+    min-height: 0; /* Important for Firefox */
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Ensure equal height distribution based on number of colors */
+  .mobile-colors-container .color-palette-item {
+    height: calc(100% / var(--color-count, 5));
+  }
+  
+  /* Fallback for older browsers */
+  .mobile-colors-container:has(.color-palette-item:nth-child(5)) .color-palette-item {
+    height: 20%;
+  }
+  
+  .mobile-colors-container:has(.color-palette-item:nth-child(4):nth-last-child(1)) .color-palette-item {
+    height: 25%;
+  }
+  
+  .mobile-colors-container:has(.color-palette-item:nth-child(3):nth-last-child(1)) .color-palette-item {
+    height: 33.333%;
+  }
+  
+  .mobile-colors-container:has(.color-palette-item:nth-child(2):nth-last-child(1)) .color-palette-item {
+    height: 50%;
+  }
+  
+  /* Rating box styles */
+  .mobile-rating-box {
+    background-color: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 12px;
   }
 }
